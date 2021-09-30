@@ -1,6 +1,7 @@
 import time
 import os
 from datetime import datetime
+#from os import PathLike
 import csv
 import math
 # import numpy as np
@@ -55,6 +56,7 @@ def generateResultsFromFileAllocation(testcases, folderpath, param1, param2, par
 	written_header_alloc = False
 	for file in os.listdir(folderpath):
 		filename = folderpath + str("/") + os.fsdecode(file)
+		#filename = folderpath + str("/") + os.PathLike(file)
 		if(os.path.isdir(filename)):
 			continue
 		if str(param1) != filename.split('_')[approach_pos+1] or str(param2) + "-" + str(param3) != filename.split('_')[approach_pos+2].split(".")[0]:

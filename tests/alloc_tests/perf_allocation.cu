@@ -305,8 +305,8 @@ int main(int argc, char* argv[])
 				d_testAllocation <decltype(memory_manager), true> <<<gridSize, blockSize>>>(memory_manager, d_memory, num_allocations, allocation_size_byte);
 			else
 				d_testAllocation <decltype(memory_manager), false> <<<gridSize, blockSize>>>(memory_manager, d_memory, num_allocations, allocation_size_byte);
-			timing_allocation.stopMeasurement();
 			CHECK_ERROR(cudaDeviceSynchronize());
+			timing_allocation.stopMeasurement();
 		}
 
 		d_testWriteToMemory<<<gridSize, blockSize>>>(d_memory, num_allocations, allocation_size_byte);
