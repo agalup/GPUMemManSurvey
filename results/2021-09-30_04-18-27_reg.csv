@@ -1,0 +1,16 @@
+Approach,Alloc Size,Timing (ms) GPU,Timing (ms) CPU
+Ouroboros-C-VA,56, 28
+Ouroboros-C-VL,58, 30
+CUDA,24, 24
+Halloc,38, 30
+RegEff-CFM,20, 8
+RegEff-AW,12, 4
+RegEff-C,16, 8
+Ouroboros-P-VA,36, 24
+RegEff-CM,18, 8
+XMalloc,128, 24
+ScatterAlloc,48, 21
+Ouroboros-P-S,34, 24
+RegEff-CF,16, 8
+Ouroboros-C-S,64, 24
+Ouroboros-P-VL,44, 28

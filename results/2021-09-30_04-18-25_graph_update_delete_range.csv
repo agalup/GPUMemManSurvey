@@ -1,0 +1,16 @@
+Graphs,1138_bus.mtx,email.mtx
+RegEff-CF,,
+CUDA,0.396775,0.404789
+RegEff-CM,,
+Ouroboros-P-S,0.463329,0.425671
+XMalloc,,
+RegEff-CFM,,
+Ouroboros-C-VL,0.39491,0.446846
+Ouroboros-P-VL,0.494661,0.489408
+Ouroboros-C-VA,0.453105,0.400187
+RegEff-C,,
+Halloc,0.263288,0.283295
+ScatterAlloc,0.217425,0.226552
+Ouroboros-P-VA,0.450611,0.515192
+Ouroboros-C-S,0.506948,0.339189
+RegEff-AW,0.214846,0.225293
