@@ -8,6 +8,7 @@
 #include "UtilityFunctions.cuh"
 #include "CudaUniquePointer.cuh"
 #include "PerformanceMeasure.cuh"
+#include "runtime-system/runtime_system.cuh"
 
 // ########################
 #ifdef TEST_CUDA
@@ -89,6 +90,19 @@ __global__ void freeKernel(MemoryManager mm, int** __restrict verification_ptr)
 	mm.free(verification_ptr[threadIdx.x + blockIdx.x * blockDim.x]);
 }
 
+template<typename MemoryManagerType>
+__global__ void mallocKernelRS(Runtime<MemoryManagerType> rs, int** __restrict verification_ptr)
+{
+	//verification_ptr[threadIdx.x + blockIdx.x * blockDim.x] = reinterpret_cast<int*>(mm.malloc(32));
+	rs.malloc((volatile int**)&verification_ptr[threadIdx.x + blockIdx.x * blockDim.x], 32);
+}
+
+template<typename MemoryManagerType>
+__global__ void freeKernelRS(Runtime<MemoryManagerType> rs, int** __restrict verification_ptr)
+{
+	rs.free(verification_ptr[threadIdx.x + blockIdx.x * blockDim.x]);
+}
+
 int main(int argc, char* argv[])
 {
 	std::string csv_path{"../results/tmp/"};
@@ -109,7 +123,7 @@ int main(int argc, char* argv[])
 	
 	std::ofstream results;
 	results.open(csv_path.c_str(), std::ios_base::app);
-
+{
 	struct cudaFuncAttributes funcAttribMalloc;
 	CHECK_ERROR(cudaFuncGetAttributes(&funcAttribMalloc, mallocKernel));
 	printf("%s numRegs = %d\n","Malloc-Kernel",funcAttribMalloc.numRegs);
@@ -119,6 +133,17 @@ int main(int argc, char* argv[])
 	CHECK_ERROR(cudaFuncGetAttributes(&funcAttribFree, freeKernel));
 	printf("%s numRegs = %d\n","Free-Kernel",funcAttribFree.numRegs);
 	results << funcAttribFree.numRegs;
+}
+{
+	struct cudaFuncAttributes funcAttribMalloc;
+	CHECK_ERROR(cudaFuncGetAttributes(&funcAttribMalloc, mallocKernelRS<MemoryManager>));
+	printf("%s numRegs = %d\n","Malloc-Kernel with RS",funcAttribMalloc.numRegs);
+	results << funcAttribMalloc.numRegs << ", ";
 
+	struct cudaFuncAttributes funcAttribFree;
+	CHECK_ERROR(cudaFuncGetAttributes(&funcAttribFree, freeKernelRS<MemoryManager>));
+	printf("%s numRegs = %d\n","Free-Kernel with RS",funcAttribFree.numRegs);
+	results << funcAttribFree.numRegs;
+}
 	return 0;
 }

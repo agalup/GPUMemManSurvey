@@ -50,6 +50,8 @@ endif ()
 
 string(APPEND CMAKE_CUDA_FLAGS "  -Xcompiler -Wall -D_FORCE_INLINES -DVERBOSE --expt-extended-lambda -use_fast_math --expt-relaxed-constexpr")
 
+#string(APPEND CMAKE_CUDA_FLAGS " -rdc=true -lcudadevrt -arch=sm_70")
+
 if (CUDA_BUILD_INFO)
 	string(APPEND CMAKE_CUDA_FLAGS " -keep --ptxas-options=-v -lineinfo")
 endif ()

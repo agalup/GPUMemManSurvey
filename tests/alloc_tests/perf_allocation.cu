@@ -6,6 +6,7 @@
 #include "UtilityFunctions.cuh"
 #include "PerformanceMeasure.cuh"
 #include "DevicePerformanceMeasure.cuh"
+#include "runtime_system.cuh"
 
 // ########################
 #ifdef TEST_CUDA
@@ -77,8 +78,8 @@ const std::string mem_name("FDGMalloc");
 	#endif
 #endif
 
-template <typename MemoryManagerType, bool warp_based>
-__global__ void d_testAllocation(MemoryManagerType mm, int** verification_ptr, int num_allocations, int allocation_size)
+template <typename Runtime, bool warp_based>
+__global__ void d_testAllocation_RS(Runtime rs, volatile int** verification_ptr, unsigned int num_allocations, unsigned int allocation_size)
 {
 	int tid{0};
 	if(warp_based)
@@ -86,21 +87,31 @@ __global__ void d_testAllocation(MemoryManagerType mm, int** verification_ptr, i
 		tid = (threadIdx.x + blockIdx.x * blockDim.x) / 32;
 		if(tid >= num_allocations)
 			return;
-		if(threadIdx.x % 32 == 0)
-			verification_ptr[tid] = reinterpret_cast<int*>(mm.malloc(allocation_size));
+		if(threadIdx.x % 32 == 0){
+            rs.malloc((volatile int**)&verification_ptr[tid], allocation_size);
+            assert(verification_ptr[tid]);
+        }
 	}
 	else
 	{
 		tid = threadIdx.x + blockIdx.x * blockDim.x;
+        if (tid == 0){
+            printf("num allocations %d, allocation_size %d\n", num_allocations, allocation_size);
+        }
 		if(tid >= num_allocations)
 			return;
 
-		verification_ptr[tid] = reinterpret_cast<int*>(mm.malloc(allocation_size));
+        assert(verification_ptr);
+
+        rs.malloc((volatile int**)&verification_ptr[tid], allocation_size);
+        assert(verification_ptr[tid]);
+        __threadfence();
+        __syncthreads();
 	}
 }
 
-template <typename MemoryManagerType>
-__global__ void d_testAllocation(MemoryManagerType mm, int** verification_ptr, int num_allocations, int allocation_size, DevicePerfMeasure::Type* timing)
+template <typename Runtime>
+__global__ void d_testAllocation_RS(Runtime rs, volatile int** verification_ptr, int num_allocations, int allocation_size, DevicePerfMeasure::Type* timing)
 {
 	int tid = threadIdx.x + blockIdx.x * blockDim.x;
 	if(tid >= num_allocations)
@@ -111,7 +122,8 @@ __global__ void d_testAllocation(MemoryManagerType mm, int** verification_ptr, i
 	// Start Measure
 	perf_measure.startThreadMeasure();
 
-	auto ptr = reinterpret_cast<int*>(mm.malloc(allocation_size));
+    int* ptr;
+    rs.malloc((volatile int**)&ptr, allocation_size);
 	
 	// Stop Measure
 	timing[tid] = perf_measure.stopThreadMeasure();
@@ -120,7 +132,7 @@ __global__ void d_testAllocation(MemoryManagerType mm, int** verification_ptr, i
 }
 
 template <typename MemoryManagerType, bool warp_based>
-__global__ void d_testFree(MemoryManagerType mm, int** verification_ptr, int num_allocations)
+__global__ void d_testFree_RS(Runtime<MemoryManagerType> rs, volatile int** verification_ptr, int num_allocations)
 {
 	int tid{0};
 	if(warp_based)
@@ -130,7 +142,7 @@ __global__ void d_testFree(MemoryManagerType mm, int** verification_ptr, int num
 			return;
 	
 		if(threadIdx.x % 32 == 0)
-			mm.free(verification_ptr[tid]);
+			rs.free(verification_ptr[tid]);
 	}
 	else
 	{
@@ -138,12 +150,12 @@ __global__ void d_testFree(MemoryManagerType mm, int** verification_ptr, int num
 		if(tid >= num_allocations)
 			return;
 
-		mm.free(verification_ptr[tid]);
+		rs.free(verification_ptr[tid]);
 	}
 }
 
 template <typename MemoryManagerType>
-__global__ void d_testFree(MemoryManagerType mm, int** verification_ptr, int num_allocations, DevicePerfMeasure::Type* timing)
+__global__ void d_testFree_RS(Runtime<MemoryManagerType> rs, volatile int** verification_ptr, int num_allocations, DevicePerfMeasure::Type* timing)
 {
 	int tid = threadIdx.x + blockIdx.x * blockDim.x;
 	if(tid >= num_allocations)
@@ -154,13 +166,14 @@ __global__ void d_testFree(MemoryManagerType mm, int** verification_ptr, int num
 	// Start Measure
 	perf_measure.startThreadMeasure();
 
-	mm.free(verification_ptr[tid]);
+	rs.free(verification_ptr[tid]);
 
 	// Stop Measure
 	timing[tid] = perf_measure.stopThreadMeasure();
 }
 
-__global__ void d_testWriteToMemory(int** verification_ptr, int num_allocations, int allocation_size)
+
+__global__ void d_testWriteToMemory(volatile int** verification_ptr, int num_allocations, int allocation_size)
 {
 	int tid = threadIdx.x + blockIdx.x * blockDim.x;
 	if(tid >= num_allocations)
@@ -174,7 +187,7 @@ __global__ void d_testWriteToMemory(int** verification_ptr, int num_allocations,
 	}
 }
 
-__global__ void d_testReadFromMemory(int** verification_ptr, int num_allocations, int allocation_size)
+__global__ void d_testReadFromMemory(volatile int** verification_ptr, int num_allocations, int allocation_size)
 {
 	int tid = threadIdx.x + blockIdx.x * blockDim.x;
 	if(tid >= num_allocations)
@@ -255,21 +268,32 @@ int main(int argc, char* argv[])
 				}
 			}
 		}
-	}
+    }
+
+    printf("num_allocations %d\n", num_allocations);
+    printf("allocation size %d\n", allocation_size_byte);
+    printf("num_iterations %d\n", num_iterations);
+    printf("onDeviceMeasure %d\n", onDeviceMeasure);
+    printf("warp_based %d\n", warp_based);
+    printf("generate_output %d\n", generate_output);
+    printf("free memory %d\n", free_memory);
+
 	allocation_size_byte = Utils::alignment(allocation_size_byte, sizeof(int));
 	if(print_output)
 		std::cout << "Number of Allocations: " << num_allocations << " | Allocation Size: " << allocation_size_byte << std::endl;
 
-	cudaSetDevice(device);
+    /*int * tmp_dev;
+    CHECK_ERROR(cudaMalloc((void**)&tmp_dev, sizeof(int)));*/
+	CHECK_ERROR(cudaSetDevice(device));
 	cudaDeviceProp prop;
-	cudaGetDeviceProperties(&prop, device);
+	CHECK_ERROR(cudaGetDeviceProperties(&prop, device));
 	std::cout << "Going to use " << prop.name << " " << prop.major << "." << prop.minor << "\n";
 
 	std::cout << "--- " << mem_name << "---\n";
-	MemoryManager memory_manager(allocSizeinGB * 1024ULL * 1024ULL * 1024ULL);
 
-	int** d_memory{nullptr};
-	CHECK_ERROR(cudaMalloc(&d_memory, sizeof(int*) * num_allocations));
+	volatile int** d_memory{nullptr};
+	CHECK_ERROR(cudaMalloc((void**)&d_memory, sizeof(volatile int*) * (num_allocations+100)));
+
 
 	std::ofstream results_alloc, results_free;
 	if(generate_output)
@@ -280,6 +304,7 @@ int main(int argc, char* argv[])
 
 	int blockSize {256};
 	int gridSize {Utils::divup<int>(num_allocations, blockSize)};
+    printf("blockSize %d, gridSize %d\n", blockSize, gridSize);
 	if(warp_based)
 		gridSize *= 32;
 
@@ -289,53 +314,98 @@ int main(int argc, char* argv[])
 	DevicePerfMeasure per_thread_timing_allocation(num_allocations, num_iterations);
 	DevicePerfMeasure per_thread_timing_free(num_allocations, num_iterations);
 
+    //exit(1);
 	for(auto i = 0; i < num_iterations; ++i)
-	{
-		std::cout << "#" << std::flush;
-		if(onDeviceMeasure)
-		{
-			d_testAllocation <<<gridSize, blockSize>>>(memory_manager, d_memory, num_allocations, allocation_size_byte, per_thread_timing_allocation.getDevicePtr());
-			CHECK_ERROR(cudaDeviceSynchronize());
-			per_thread_timing_allocation.acceptResultsFromDevice();
-		}
-		else
-		{
-			timing_allocation.startMeasurement();
-			if(warp_based)
-				d_testAllocation <decltype(memory_manager), true> <<<gridSize, blockSize>>>(memory_manager, d_memory, num_allocations, allocation_size_byte);
-			else
-				d_testAllocation <decltype(memory_manager), false> <<<gridSize, blockSize>>>(memory_manager, d_memory, num_allocations, allocation_size_byte);
-			CHECK_ERROR(cudaDeviceSynchronize());
-			timing_allocation.stopMeasurement();
-		}
+    {
+        CUcontext default_ctx;
+	    MemoryManager memory_manager(allocSizeinGB * 1024ULL * 1024ULL * 1024ULL);
+        //debug("HOST: mem man addr %x\n", &memory_manager);
+        //debug("HOSt: d_pointer to mem man addr %x\n", memory_manager.d_memory_manager);
+        using MemoryManager2 = std::remove_pointer<decltype(memory_manager.d_memory_manager)>::type;
+        Runtime<MemoryManager2> rs;
+        int app_sm = 70;
+#ifdef CALLBACK__
+        rs.init(num_allocations, 0, memory_manager.d_memory_manager, 1, app_sm, 5, 4, 1, blockSize, 1);
+#else
+        rs.init(num_allocations, 0, memory_manager.d_memory_manager, app_sm, 5, 4, blockSize, 1);
+#endif
+        CUcontext app_ctx; 
+        CUexecAffinityParam_v1 app_param{CUexecAffinityType::CU_EXEC_AFFINITY_TYPE_SM_COUNT, (unsigned int) app_sm};
+        auto affinity_flags = CUctx_flags::CU_CTX_SCHED_AUTO;
+        GUARD_CU((cudaError_t)cuCtxCreate_v3(&app_ctx, &app_param, 1, affinity_flags, device));
+        GUARD_CU((cudaError_t)cuCtxSynchronize());
+        CUcontext current_ctx;
+        GUARD_CU((cudaError_t)cuCtxPopCurrent(&current_ctx));
+        debug("current was %d\n", current_ctx);
 
-		d_testWriteToMemory<<<gridSize, blockSize>>>(d_memory, num_allocations, allocation_size_byte);
+        std::cout << "#" << std::flush;
 
-		CHECK_ERROR(cudaDeviceSynchronize());
+        GUARD_CU((cudaError_t)cuCtxSynchronize());
 
-		d_testReadFromMemory<<<gridSize, blockSize>>>(d_memory, num_allocations, allocation_size_byte);
+        if(onDeviceMeasure)
+        {
+            d_testAllocation_RS <<<gridSize, blockSize>>>(rs, d_memory, num_allocations, allocation_size_byte, per_thread_timing_allocation.getDevicePtr());
+            CHECK_ERROR(cudaDeviceSynchronize());
+            per_thread_timing_allocation.acceptResultsFromDevice();
+        }
+        else
+        {
+            timing_allocation.startMeasurement();
+            if(warp_based){
+                d_testAllocation_RS <Runtime<MemoryManager2>, true>  <<<gridSize, blockSize>>>(rs, d_memory, num_allocations, allocation_size_byte);
+            }else{
+                void* args[] = {&rs, &d_memory, &num_allocations, &allocation_size_byte};
+                rs.run_sync((void*)d_testAllocation_RS<Runtime<MemoryManager2>, false>, gridSize, blockSize, args, app_ctx);
+            }
+            timing_allocation.stopMeasurement();
+        }
+        debug("write\n");
+        void* args2[] = {&d_memory, &num_allocations, &allocation_size_byte};
+        rs.run_sync((void*)d_testWriteToMemory, gridSize, blockSize, args2, app_ctx);
+        debug("read\n");
+        void* args3[] = {&d_memory, &num_allocations, &allocation_size_byte};
+        rs.run_sync((void*)d_testReadFromMemory, gridSize, blockSize, args3, app_ctx);
+        debug("free\n");
+        if(free_memory)
+        {
+            if(onDeviceMeasure)
+            {
+                d_testFree_RS <<<gridSize, blockSize>>>(rs, d_memory, num_allocations, per_thread_timing_free.getDevicePtr());
+                CHECK_ERROR(cudaDeviceSynchronize());
+                per_thread_timing_free.acceptResultsFromDevice();
+            }
+            else
+            {
+                timing_free.startMeasurement();
+                if(warp_based){
+                    d_testFree_RS <MemoryManager2, true> <<<gridSize, blockSize>>>(rs, d_memory, num_allocations);
+                }else{
+                    void* args[] = {&rs, &d_memory, &num_allocations};
+                    rs.run_sync((void*)d_testFree_RS<Runtime<MemoryManager2>, false>, gridSize, blockSize, args,
+                            app_ctx);
+                }
+                timing_free.stopMeasurement();
+                CHECK_ERROR(cudaDeviceSynchronize());
+            }
+        }
 
-		CHECK_ERROR(cudaDeviceSynchronize());
+        debug("stop services\n");
+        rs.stop_services();
+        GUARD_CU(cudaDeviceSynchronize());
+        GUARD_CU(cudaPeekAtLastError());
+        debug("clean memory\n");
+        clean_memory(app_sm, blockSize, rs);
+        GUARD_CU((cudaError_t)cuCtxDestroy(app_ctx));
+        GUARD_CU(cudaDeviceSynchronize());
+        GUARD_CU(cudaPeekAtLastError());
+        debug("memory cleaned\n");
+        GUARD_CU(cudaDeviceSynchronize());
+        GUARD_CU(cudaPeekAtLastError());
+        debug("stop runtime\n");
+        rs.stop_runtime();
+        GUARD_CU(cudaDeviceSynchronize());
+        GUARD_CU(cudaPeekAtLastError());
 
-		if(free_memory)
-		{
-			if(onDeviceMeasure)
-			{
-				d_testFree <<<gridSize, blockSize>>>(memory_manager, d_memory, num_allocations, per_thread_timing_free.getDevicePtr());
-				CHECK_ERROR(cudaDeviceSynchronize());
-				per_thread_timing_free.acceptResultsFromDevice();
-			}
-			else
-			{
-				timing_free.startMeasurement();
-				if(warp_based)
-					d_testFree <decltype(memory_manager), true> <<<gridSize, blockSize>>>(memory_manager, d_memory, num_allocations);
-				else
-					d_testFree <decltype(memory_manager), false> <<<gridSize, blockSize>>>(memory_manager, d_memory, num_allocations);
-				timing_free.stopMeasurement();
-				CHECK_ERROR(cudaDeviceSynchronize());
-			}
-		}
 	}
 	std::cout << std::endl;
 

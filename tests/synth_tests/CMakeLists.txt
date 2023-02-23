@@ -6,13 +6,13 @@ set(BASE_PATH "../../")
 include(${BASE_PATH}BaseCMake.cmake)
 
 # Which frameworks to test
-option(TEST_CUDA "Test CUDA" True)
-option(TEST_HALLOC "Test Halloc" True)
-option(TEST_SCATTERALLOC "Test ScatterAlloc" True)
+option(TEST_CUDA "Test CUDA" False)
+option(TEST_HALLOC "Test Halloc" False)
+option(TEST_SCATTERALLOC "Test ScatterAlloc" False)
 option(TEST_OUROBOROS "Test Ouroboros" True)
 option(TEST_FDG "Test FDGMalloc" False)
-option(TEST_REG "Test Register-Efficient" True)
-option(TEST_XMALLOC "Test XMalloc" True)
+option(TEST_REG "Test Register-Efficient" False)
+option(TEST_XMALLOC "Test XMalloc" False)
 
 if(SYNC_BUILD)
 set(TEST_CUDA OFF)
@@ -32,7 +32,7 @@ endif()
 include_directories(${CMAKE_CUDA_TOOLKIT_INCLUDE_DIRECTORIES})
 include_directories(${BASE_PATH}include)
 include_directories(${BASE_PATH}frameworks)
-include_directories(${BASE_PATH}externals/cub)
+include_directories(${BASE_PATH}externals/runtime-system)
 
 ##########################################################################
 ##########################################################################
@@ -187,6 +187,7 @@ if(TEST_OUROBOROS)
 	target_compile_definitions(o_synth_test_p PUBLIC TEST_OUROBOROS)
 	target_compile_definitions(o_synth_test_p PUBLIC TEST_PAGES)
 	target_include_directories(o_synth_test_p PUBLIC ${BASE_PATH}frameworks/ouroboros/repository/include)
+    target_include_directories(o_synth_test_p PUBLIC externals)
 	set_property(TARGET o_synth_test_p PROPERTY CUDA_ARCHITECTURES OFF)
 
 	add_executable(o_synth_test_c
@@ -195,6 +196,7 @@ if(TEST_OUROBOROS)
 	target_compile_definitions(o_synth_test_c PUBLIC TEST_OUROBOROS)
 	target_compile_definitions(o_synth_test_c PUBLIC TEST_CHUNKS)
 	target_include_directories(o_synth_test_c PUBLIC ${BASE_PATH}frameworks/ouroboros/repository/include)
+    target_include_directories(o_synth_test_c PUBLIC externals)
 	set_property(TARGET o_synth_test_c PROPERTY CUDA_ARCHITECTURES OFF)
 
 	add_executable(o_synth_test_vap
@@ -204,6 +206,7 @@ if(TEST_OUROBOROS)
 	target_compile_definitions(o_synth_test_vap PUBLIC TEST_PAGES)
 	target_compile_definitions(o_synth_test_vap PUBLIC TEST_VIRTUALIZED_ARRAY)
 	target_include_directories(o_synth_test_vap PUBLIC ${BASE_PATH}frameworks/ouroboros/repository/include)
+    target_include_directories(o_synth_test_vap PUBLIC externals)
 	set_property(TARGET o_synth_test_vap PROPERTY CUDA_ARCHITECTURES OFF)
 
 	add_executable(o_synth_test_vac
@@ -213,6 +216,7 @@ if(TEST_OUROBOROS)
 	target_compile_definitions(o_synth_test_vac PUBLIC TEST_CHUNKS)
 	target_compile_definitions(o_synth_test_vac PUBLIC TEST_VIRTUALIZED_ARRAY)
 	target_include_directories(o_synth_test_vac PUBLIC ${BASE_PATH}frameworks/ouroboros/repository/include)
+    target_include_directories(o_synth_test_vac PUBLIC externals)
 	set_property(TARGET o_synth_test_vac PROPERTY CUDA_ARCHITECTURES OFF)
 
 	add_executable(o_synth_test_vlp
@@ -222,6 +226,7 @@ if(TEST_OUROBOROS)
 	target_compile_definitions(o_synth_test_vlp PUBLIC TEST_PAGES)
 	target_compile_definitions(o_synth_test_vlp PUBLIC TEST_VIRTUALIZED_LIST)
 	target_include_directories(o_synth_test_vlp PUBLIC ${BASE_PATH}frameworks/ouroboros/repository/include)
+    target_include_directories(o_synth_test_vlp PUBLIC externals)
 	set_property(TARGET o_synth_test_vlp PROPERTY CUDA_ARCHITECTURES OFF)
 
 	add_executable(o_synth_test_vlc
@@ -231,6 +236,7 @@ if(TEST_OUROBOROS)
 	target_compile_definitions(o_synth_test_vlc PUBLIC TEST_CHUNKS)
 	target_compile_definitions(o_synth_test_vlc PUBLIC TEST_VIRTUALIZED_LIST)
 	target_include_directories(o_synth_test_vlc PUBLIC ${BASE_PATH}frameworks/ouroboros/repository/include)
+    target_include_directories(o_synth_test_vlc PUBLIC externals)
 	set_property(TARGET o_synth_test_vlc PROPERTY CUDA_ARCHITECTURES OFF)
 
 ##########################################################################
@@ -241,6 +247,7 @@ if(TEST_OUROBOROS)
 	target_compile_definitions(o_init_test_p PUBLIC TEST_OUROBOROS)
 	target_compile_definitions(o_init_test_p PUBLIC TEST_PAGES)
 	target_include_directories(o_init_test_p PUBLIC ${BASE_PATH}frameworks/ouroboros/repository/include)
+    target_include_directories(o_init_test_p PUBLIC externals)
 	set_property(TARGET o_init_test_p PROPERTY CUDA_ARCHITECTURES OFF)
 
 	add_executable(o_init_test_c
@@ -249,6 +256,7 @@ if(TEST_OUROBOROS)
 	target_compile_definitions(o_init_test_c PUBLIC TEST_OUROBOROS)
 	target_compile_definitions(o_init_test_c PUBLIC TEST_CHUNKS)
 	target_include_directories(o_init_test_c PUBLIC ${BASE_PATH}frameworks/ouroboros/repository/include)
+    target_include_directories(o_init_test_c PUBLIC externals)
 	set_property(TARGET o_init_test_c PROPERTY CUDA_ARCHITECTURES OFF)
 
 	add_executable(o_init_test_vap
@@ -258,6 +266,7 @@ if(TEST_OUROBOROS)
 	target_compile_definitions(o_init_test_vap PUBLIC TEST_PAGES)
 	target_compile_definitions(o_init_test_vap PUBLIC TEST_VIRTUALIZED_ARRAY)
 	target_include_directories(o_init_test_vap PUBLIC ${BASE_PATH}frameworks/ouroboros/repository/include)
+    target_include_directories(o_init_test_vap PUBLIC externals)
 	set_property(TARGET o_init_test_vap PROPERTY CUDA_ARCHITECTURES OFF)
 
 	add_executable(o_init_test_vac
@@ -267,6 +276,7 @@ if(TEST_OUROBOROS)
 	target_compile_definitions(o_init_test_vac PUBLIC TEST_CHUNKS)
 	target_compile_definitions(o_init_test_vac PUBLIC TEST_VIRTUALIZED_ARRAY)
 	target_include_directories(o_init_test_vac PUBLIC ${BASE_PATH}frameworks/ouroboros/repository/include)
+    target_include_directories(o_init_test_vac PUBLIC externals)
 	set_property(TARGET o_init_test_vac PROPERTY CUDA_ARCHITECTURES OFF)
 
 	add_executable(o_init_test_vlp
@@ -276,6 +286,7 @@ if(TEST_OUROBOROS)
 	target_compile_definitions(o_init_test_vlp PUBLIC TEST_PAGES)
 	target_compile_definitions(o_init_test_vlp PUBLIC TEST_VIRTUALIZED_LIST)
 	target_include_directories(o_init_test_vlp PUBLIC ${BASE_PATH}frameworks/ouroboros/repository/include)
+    target_include_directories(o_init_test_vlp PUBLIC externals)
 	set_property(TARGET o_init_test_vlp PROPERTY CUDA_ARCHITECTURES OFF)
 
 	add_executable(o_init_test_vlc
@@ -285,6 +296,7 @@ if(TEST_OUROBOROS)
 	target_compile_definitions(o_init_test_vlc PUBLIC TEST_CHUNKS)
 	target_compile_definitions(o_init_test_vlc PUBLIC TEST_VIRTUALIZED_LIST)
 	target_include_directories(o_init_test_vlc PUBLIC ${BASE_PATH}frameworks/ouroboros/repository/include)
+    target_include_directories(o_init_test_vlc PUBLIC externals)
 	set_property(TARGET o_init_test_vlc PROPERTY CUDA_ARCHITECTURES OFF)
 
 ##########################################################################
@@ -295,6 +307,7 @@ if(TEST_OUROBOROS)
 	target_compile_definitions(o_reg_test_p PUBLIC TEST_OUROBOROS)
 	target_compile_definitions(o_reg_test_p PUBLIC TEST_PAGES)
 	target_include_directories(o_reg_test_p PUBLIC ${BASE_PATH}frameworks/ouroboros/repository/include)
+    target_include_directories(o_reg_test_p PUBLIC externals)
 	set_property(TARGET o_reg_test_p PROPERTY CUDA_ARCHITECTURES OFF)
 
 	add_executable(o_reg_test_c
@@ -303,6 +316,7 @@ if(TEST_OUROBOROS)
 	target_compile_definitions(o_reg_test_c PUBLIC TEST_OUROBOROS)
 	target_compile_definitions(o_reg_test_c PUBLIC TEST_CHUNKS)
 	target_include_directories(o_reg_test_c PUBLIC ${BASE_PATH}frameworks/ouroboros/repository/include)
+    target_include_directories(o_reg_test_c PUBLIC externals)
 	set_property(TARGET o_reg_test_c PROPERTY CUDA_ARCHITECTURES OFF)
 
 	add_executable(o_reg_test_vap
@@ -312,6 +326,7 @@ if(TEST_OUROBOROS)
 	target_compile_definitions(o_reg_test_vap PUBLIC TEST_PAGES)
 	target_compile_definitions(o_reg_test_vap PUBLIC TEST_VIRTUALIZED_ARRAY)
 	target_include_directories(o_reg_test_vap PUBLIC ${BASE_PATH}frameworks/ouroboros/repository/include)
+    target_include_directories(o_reg_test_vap PUBLIC externals)
 	set_property(TARGET o_reg_test_vap PROPERTY CUDA_ARCHITECTURES OFF)
 
 	add_executable(o_reg_test_vac
@@ -321,6 +336,7 @@ if(TEST_OUROBOROS)
 	target_compile_definitions(o_reg_test_vac PUBLIC TEST_CHUNKS)
 	target_compile_definitions(o_reg_test_vac PUBLIC TEST_VIRTUALIZED_ARRAY)
 	target_include_directories(o_reg_test_vac PUBLIC ${BASE_PATH}frameworks/ouroboros/repository/include)
+    target_include_directories(o_reg_test_vac PUBLIC externals)
 	set_property(TARGET o_reg_test_vac PROPERTY CUDA_ARCHITECTURES OFF)
 
 	add_executable(o_reg_test_vlp
@@ -330,6 +346,7 @@ if(TEST_OUROBOROS)
 	target_compile_definitions(o_reg_test_vlp PUBLIC TEST_PAGES)
 	target_compile_definitions(o_reg_test_vlp PUBLIC TEST_VIRTUALIZED_LIST)
 	target_include_directories(o_reg_test_vlp PUBLIC ${BASE_PATH}frameworks/ouroboros/repository/include)
+    target_include_directories(o_reg_test_vlp PUBLIC externals)
 	set_property(TARGET o_reg_test_vlp PROPERTY CUDA_ARCHITECTURES OFF)
 
 	add_executable(o_reg_test_vlc
@@ -339,6 +356,7 @@ if(TEST_OUROBOROS)
 	target_compile_definitions(o_reg_test_vlc PUBLIC TEST_CHUNKS)
 	target_compile_definitions(o_reg_test_vlc PUBLIC TEST_VIRTUALIZED_LIST)
 	target_include_directories(o_reg_test_vlc PUBLIC ${BASE_PATH}frameworks/ouroboros/repository/include)
+    target_include_directories(o_reg_test_vlc PUBLIC externals)
 	set_property(TARGET o_reg_test_vlc PROPERTY CUDA_ARCHITECTURES OFF)
 
 
