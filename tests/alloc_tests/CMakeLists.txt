@@ -159,7 +159,8 @@ if(TEST_OUROBOROS)
 	target_include_directories(o_alloc_test_p PUBLIC ${BASE_PATH}frameworks/ouroboros/repository/include)
     target_include_directories(o_alloc_test_p PUBLIC ${BASE_PATH}externals/ouroboros/)
     target_link_libraries(o_alloc_test_p cuda)
-	set_property(TARGET o_alloc_test_p PROPERTY CUDA_ARCHITECTURES ON)
+	#set_property(TARGET o_alloc_test_p PROPERTY CUDA_ARCHITECTURES ON)
+	set_property(TARGET o_alloc_test_p PROPERTY CUDA_ARCHITECTURES OFF)
     set_property(TARGET o_alloc_test_p PROPERTY CUDA_SEPARABLE_COMPILATION ON)
 
 	add_executable(o_alloc_test_c
