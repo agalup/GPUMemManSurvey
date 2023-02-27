@@ -8,6 +8,8 @@
 #include "PerformanceMeasure.cuh"
 #include "DevicePerformanceMeasure.cuh"
 
+#include "runtime_system.cuh"
+
 // ########################
 #ifdef TEST_CUDA
 #include "cuda/Instance.cuh"

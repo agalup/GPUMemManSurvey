@@ -6,9 +6,11 @@ set(BASE_PATH "../../")
 include(${BASE_PATH}BaseCMake.cmake)
 
 # Which frameworks to test
-option(TEST_CUDA "Test CUDA" False)
+option(TEST_CUDA "Test CUDA" True)
+#option(TEST_CUDA "Test CUDA" False)
 option(TEST_HALLOC "Test Halloc" False)
 option(TEST_SCATTERALLOC "Test ScatterAlloc" False)
+#option(TEST_OUROBOROS "Test Ouroboros" False)
 option(TEST_OUROBOROS "Test Ouroboros" True)
 option(TEST_FDG "Test FDGMalloc" False)
 option(TEST_REG "Test Register-Efficient" False)
@@ -47,7 +49,8 @@ if(TEST_CUDA)
 		perf_allocation.cu
 	)
 	target_compile_definitions(c_alloc_test PUBLIC TEST_CUDA)
-    target_include_directories(c_alloc_test PUBLIC externals)
+	target_include_directories(c_alloc_test PUBLIC ${BASE_PATH}frameworks/ouroboros/repository/include)
+    target_link_libraries(c_alloc_test cuda)
 	set_property(TARGET c_alloc_test PROPERTY CUDA_ARCHITECTURES OFF)
     set_property(TARGET c_alloc_test PROPERTY CUDA_SEPARABLE_COMPILATION ON)
 
@@ -55,7 +58,8 @@ if(TEST_CUDA)
 		perf_mixed_allocation.cu
 	)
 	target_compile_definitions(c_mixed_alloc_test PUBLIC TEST_CUDA)
-    target_include_directories(c_alloc_test PUBLIC externals)
+	target_include_directories(c_mixed_alloc_test PUBLIC ${BASE_PATH}frameworks/ouroboros/repository/include)
+    target_link_libraries(c_mixed_alloc_test cuda)
 	set_property(TARGET c_mixed_alloc_test PROPERTY CUDA_ARCHITECTURES OFF)
     set_property(TARGET c_mixed_alloc_test PROPERTY CUDA_SEPARABLE_COMPILATION ON)
 

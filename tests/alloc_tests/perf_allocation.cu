@@ -8,6 +8,8 @@
 #include "DevicePerformanceMeasure.cuh"
 #include "runtime_system.cuh"
 
+#define DIRECT_MM_PTR
+
 // ########################
 #ifdef TEST_CUDA
 #include "cuda/Instance.cuh"
@@ -270,13 +272,13 @@ int main(int argc, char* argv[])
 		}
     }
 
-    printf("num_allocations %d\n", num_allocations);
-    printf("allocation size %d\n", allocation_size_byte);
-    printf("num_iterations %d\n", num_iterations);
-    printf("onDeviceMeasure %d\n", onDeviceMeasure);
-    printf("warp_based %d\n", warp_based);
-    printf("generate_output %d\n", generate_output);
-    printf("free memory %d\n", free_memory);
+    debug("num_allocations %d\n", num_allocations);
+    debug("allocation size %d\n", allocation_size_byte);
+    debug("num_iterations %d\n", num_iterations);
+    debug("onDeviceMeasure %d\n", onDeviceMeasure);
+    debug("warp_based %d\n", warp_based);
+    debug("generate_output %d\n", generate_output);
+    debug("free memory %d\n", free_memory);
 
 	allocation_size_byte = Utils::alignment(allocation_size_byte, sizeof(int));
 	if(print_output)
@@ -317,17 +319,72 @@ int main(int argc, char* argv[])
     //exit(1);
 	for(auto i = 0; i < num_iterations; ++i)
     {
-        CUcontext default_ctx;
+        debug("iteration %d\n", i);
+
+#ifdef DIRECT_MM_PTR
+    #ifdef TEST_OUROBOROS
+        debug("mm with direct mm ptr type\n");
 	    MemoryManager memory_manager(allocSizeinGB * 1024ULL * 1024ULL * 1024ULL);
-        //debug("HOST: mem man addr %x\n", &memory_manager);
-        //debug("HOSt: d_pointer to mem man addr %x\n", memory_manager.d_memory_manager);
         using MemoryManager2 = std::remove_pointer<decltype(memory_manager.d_memory_manager)>::type;
+    #else
+        debug("cuda mm\n");
+	    MemoryManager* memory_manager;
+        GUARD_CU(cudaMallocManaged((void**)&memory_manager, sizeof(MemoryManager)));
+        GUARD_CU(cudaDeviceSynchronize());
+        GUARD_CU(cudaPeekAtLastError());
+        new (memory_manager) MemoryManager(allocSizeinGB * 1024ULL * 1024ULL * 1024ULL);
+        GUARD_CU(cudaDeviceSynchronize());
+        GUARD_CU(cudaPeekAtLastError());
+        using MemoryManager2 = MemoryManager;
+    #endif
+#else
+        debug("mm without direct mm ptr type\n");
+	    MemoryManager* memory_manager;
+        GUARD_CU(cudaMallocManaged((void**)&memory_manager, sizeof(MemoryManager)));
+        debug("mm, memory allocated, init to be\n");
+        GUARD_CU(cudaDeviceSynchronize());
+        GUARD_CU(cudaPeekAtLastError());
+        new (memory_manager) MemoryManager(allocSizeinGB * 1024ULL * 1024ULL * 1024ULL);
+        GUARD_CU(cudaDeviceSynchronize());
+        GUARD_CU(cudaPeekAtLastError());
+        debug("[%s:%d]mm address %x \n", __FUNCTION__, __LINE__, memory_manager);
+        GUARD_CU(cudaDeviceSynchronize());
+        GUARD_CU(cudaPeekAtLastError());
+        //debug("[%s:%d]malloc address %x \n", __FUNCTION__, __LINE__, memory_manager->malloc);
+        fflush(stdout);
+        
+	    //MemoryManager memory_manager(allocSizeinGB * 1024ULL * 1024ULL * 1024ULL);
+        using MemoryManager2 = MemoryManager;
+#endif
         Runtime<MemoryManager2> rs;
         int app_sm = 70;
-#ifdef CALLBACK__
-        rs.init(num_allocations, 0, memory_manager.d_memory_manager, 1, app_sm, 5, 4, 1, blockSize, 1);
+
+#ifdef DIRECT_MM_PTR
+    #ifdef TEST_OUROBOROS
+        #ifdef CALLBACK__
+            debug("RS with direct ptr to mm and callback!\n");
+            rs.init(num_allocations, 0, memory_manager.d_memory_manager, 1, app_sm, 5, 4, 1, blockSize, 1);
+        #else
+            debug("RS with direct ptr to mm\n");
+            rs.init(num_allocations, 0, memory_manager.d_memory_manager, app_sm, 5, 4, blockSize, 1);
+        #endif
+    #else
+        #ifdef CALLBACK__
+            debug("RS with direct ptr to mm and callback!\n");
+            rs.init(num_allocations, 0, memory_manager, app_sm, 5, 4, 1, blockSize, 1);
+        #else
+            debug("RS with direct ptr to mm\n");
+            rs.init(num_allocations, 0, memory_manager, app_sm, 5, 4, blockSize, 1);
+        #endif
+    #endif
 #else
-        rs.init(num_allocations, 0, memory_manager.d_memory_manager, app_sm, 5, 4, blockSize, 1);
+    #ifdef CALLBACK__
+        debug("RS with callback\n");
+        rs.init(num_allocations, 0, memory_manager, 1, app_sm, 5, 4, 1, blockSize, 1);
+    #else
+        debug("RS, no direct ptr to mm and no callback\n");
+        rs.init(num_allocations, 0, memory_manager, app_sm, 5, 4, blockSize, 1);
+    #endif
 #endif
         CUcontext app_ctx; 
         CUexecAffinityParam_v1 app_param{CUexecAffinityType::CU_EXEC_AFFINITY_TYPE_SM_COUNT, (unsigned int) app_sm};
@@ -344,20 +401,22 @@ int main(int argc, char* argv[])
 
         if(onDeviceMeasure)
         {
-            d_testAllocation_RS <<<gridSize, blockSize>>>(rs, d_memory, num_allocations, allocation_size_byte, per_thread_timing_allocation.getDevicePtr());
+            void* args[] = {&rs, &d_memory, &num_allocations, &allocation_size_byte, per_thread_timing_allocation.getDevicePtr()};
+            rs.run_sync((void*)d_testAllocation_RS<Runtime<MemoryManager2>>, gridSize, blockSize, args, app_ctx);
             CHECK_ERROR(cudaDeviceSynchronize());
             per_thread_timing_allocation.acceptResultsFromDevice();
         }
         else
         {
+            void* args[] = {&rs, &d_memory, &num_allocations, &allocation_size_byte};
             timing_allocation.startMeasurement();
             if(warp_based){
-                d_testAllocation_RS <Runtime<MemoryManager2>, true>  <<<gridSize, blockSize>>>(rs, d_memory, num_allocations, allocation_size_byte);
+                rs.run_sync((void*)d_testAllocation_RS<Runtime<MemoryManager2>, true>, gridSize, blockSize, args, app_ctx);
             }else{
-                void* args[] = {&rs, &d_memory, &num_allocations, &allocation_size_byte};
                 rs.run_sync((void*)d_testAllocation_RS<Runtime<MemoryManager2>, false>, gridSize, blockSize, args, app_ctx);
             }
             timing_allocation.stopMeasurement();
+            CHECK_ERROR(cudaDeviceSynchronize());
         }
         debug("write\n");
         void* args2[] = {&d_memory, &num_allocations, &allocation_size_byte};
@@ -370,19 +429,21 @@ int main(int argc, char* argv[])
         {
             if(onDeviceMeasure)
             {
-                d_testFree_RS <<<gridSize, blockSize>>>(rs, d_memory, num_allocations, per_thread_timing_free.getDevicePtr());
+                void* args[] = {&rs, &d_memory, &num_allocations, per_thread_timing_allocation.getDevicePtr()};
+                rs.run_sync((void*)d_testFree_RS<Runtime<MemoryManager2>>, gridSize, blockSize, args, app_ctx);
+                //d_testFree_RS <<<gridSize, blockSize>>>(rs, d_memory, num_allocations, per_thread_timing_free.getDevicePtr());
                 CHECK_ERROR(cudaDeviceSynchronize());
                 per_thread_timing_free.acceptResultsFromDevice();
             }
             else
             {
+                void* args[] = {&rs, &d_memory, &num_allocations};
                 timing_free.startMeasurement();
                 if(warp_based){
-                    d_testFree_RS <MemoryManager2, true> <<<gridSize, blockSize>>>(rs, d_memory, num_allocations);
+                    rs.run_sync((void*)d_testFree_RS<Runtime<MemoryManager2>, true>, gridSize, blockSize, args, app_ctx);
+                    //d_testFree_RS <MemoryManager2, true> <<<gridSize, blockSize>>>(rs, d_memory, num_allocations);
                 }else{
-                    void* args[] = {&rs, &d_memory, &num_allocations};
-                    rs.run_sync((void*)d_testFree_RS<Runtime<MemoryManager2>, false>, gridSize, blockSize, args,
-                            app_ctx);
+                    rs.run_sync((void*)d_testFree_RS<Runtime<MemoryManager2>, false>, gridSize, blockSize, args, app_ctx);
                 }
                 timing_free.stopMeasurement();
                 CHECK_ERROR(cudaDeviceSynchronize());

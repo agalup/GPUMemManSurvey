@@ -47,6 +47,7 @@ if(TEST_CUDA)
 		src/main.cu
 	)
 	target_compile_definitions(c_main PUBLIC TEST_CUDA)
+    target_include_directories(c_main PUBLIC ${BASE_PATH}externals/runtime-system)
 	set_property(TARGET c_main PROPERTY CUDA_ARCHITECTURES OFF)
     set_property(TARGET c_main PROPERTY CUDA_SEPARABLE_COMPILATION ON)
 
