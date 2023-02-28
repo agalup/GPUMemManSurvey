@@ -163,7 +163,6 @@ if(TEST_OUROBOROS)
 	target_include_directories(o_alloc_test_p PUBLIC ${BASE_PATH}frameworks/ouroboros/repository/include)
     target_include_directories(o_alloc_test_p PUBLIC ${BASE_PATH}externals/ouroboros/)
     target_link_libraries(o_alloc_test_p cuda)
-	#set_property(TARGET o_alloc_test_p PROPERTY CUDA_ARCHITECTURES ON)
 	set_property(TARGET o_alloc_test_p PROPERTY CUDA_ARCHITECTURES OFF)
     set_property(TARGET o_alloc_test_p PROPERTY CUDA_SEPARABLE_COMPILATION ON)
 
@@ -178,127 +177,127 @@ if(TEST_OUROBOROS)
 	set_property(TARGET o_alloc_test_c PROPERTY CUDA_ARCHITECTURES OFF)
     set_property(TARGET o_alloc_test_c PROPERTY CUDA_SEPARABLE_COMPILATION ON)
 
-	add_executable(o_alloc_test_vap
-	perf_allocation.cu
-	)
-	target_compile_definitions(o_alloc_test_vap PUBLIC TEST_OUROBOROS)
-	target_compile_definitions(o_alloc_test_vap PUBLIC TEST_PAGES)
-	target_compile_definitions(o_alloc_test_vap PUBLIC TEST_VIRTUALIZED_ARRAY)
-	target_include_directories(o_alloc_test_vap PUBLIC ${BASE_PATH}frameworks/ouroboros/repository/include)
-    target_include_directories(o_alloc_test_vap PUBLIC ${BASE_PATH}externals/ouroboros/)
-    target_link_libraries(o_alloc_test_vap cuda)
-	set_property(TARGET o_alloc_test_vap PROPERTY CUDA_ARCHITECTURES OFF)
-    set_property(TARGET o_alloc_test_vap PROPERTY CUDA_SEPARABLE_COMPILATION ON)
-
-	add_executable(o_alloc_test_vac
-	perf_allocation.cu
-	)
-	target_compile_definitions(o_alloc_test_vac PUBLIC TEST_OUROBOROS)
-	target_compile_definitions(o_alloc_test_vac PUBLIC TEST_CHUNKS)
-	target_compile_definitions(o_alloc_test_vac PUBLIC TEST_VIRTUALIZED_ARRAY)
-	target_include_directories(o_alloc_test_vac PUBLIC ${BASE_PATH}frameworks/ouroboros/repository/include)
-    target_include_directories(o_alloc_test_vac PUBLIC ${BASE_PATH}externals/ouroboros/)
-    target_link_libraries(o_alloc_test_vac cuda)
-	set_property(TARGET o_alloc_test_vac PROPERTY CUDA_ARCHITECTURES OFF)
-    set_property(TARGET o_alloc_test_vac PROPERTY CUDA_SEPARABLE_COMPILATION ON)
-
-	add_executable(o_alloc_test_vlp
-	perf_allocation.cu
-	)
-	target_compile_definitions(o_alloc_test_vlp PUBLIC TEST_OUROBOROS)
-	target_compile_definitions(o_alloc_test_vlp PUBLIC TEST_PAGES)
-	target_compile_definitions(o_alloc_test_vlp PUBLIC TEST_VIRTUALIZED_LIST)
-	target_include_directories(o_alloc_test_vlp PUBLIC ${BASE_PATH}frameworks/ouroboros/repository/include)
-    target_include_directories(o_alloc_test_vlp PUBLIC ${BASE_PATH}externals/ouroboros/)
-    target_link_libraries(o_alloc_test_vlp cuda)
-	set_property(TARGET o_alloc_test_vlp PROPERTY CUDA_ARCHITECTURES OFF)
-    set_property(TARGET o_alloc_test_vlp PROPERTY CUDA_SEPARABLE_COMPILATION ON)
-
-	add_executable(o_alloc_test_vlc
-	perf_allocation.cu
-	)
-	target_compile_definitions(o_alloc_test_vlc PUBLIC TEST_OUROBOROS)
-	target_compile_definitions(o_alloc_test_vlc PUBLIC TEST_CHUNKS)
-	target_compile_definitions(o_alloc_test_vlc PUBLIC TEST_VIRTUALIZED_LIST)
-	target_include_directories(o_alloc_test_vlc PUBLIC ${BASE_PATH}frameworks/ouroboros/repository/include)
-    target_include_directories(o_alloc_test_vlc PUBLIC ${BASE_PATH}externals/ouroboros/)
-    target_link_libraries(o_alloc_test_vlc cuda)
-	set_property(TARGET o_alloc_test_vlc PROPERTY CUDA_ARCHITECTURES OFF)
-    set_property(TARGET o_alloc_test_vlc PROPERTY CUDA_SEPARABLE_COMPILATION ON)
-
-	##########################################################################
-	##########################################################################
-	##########################################################################
-
-	add_executable(o_mixed_alloc_test_p
-	perf_mixed_allocation.cu
-	)
-	target_compile_definitions(o_mixed_alloc_test_p PUBLIC TEST_OUROBOROS)
-	target_compile_definitions(o_mixed_alloc_test_p PUBLIC TEST_PAGES)
-	target_include_directories(o_mixed_alloc_test_p PUBLIC ${BASE_PATH}frameworks/ouroboros/repository/include)
-    target_include_directories(o_mixed_alloc_test_p PUBLIC ${BASE_PATH}externals/ouroboros/)
-    target_link_libraries(o_mixed_alloc_test_p cuda)
-	set_property(TARGET o_mixed_alloc_test_p PROPERTY CUDA_ARCHITECTURES OFF)
-    set_property(TARGET o_mixed_alloc_test_p PROPERTY CUDA_SEPARABLE_COMPILATION ON)
-
-	add_executable(o_mixed_alloc_test_c
-	perf_mixed_allocation.cu
-	)
-	target_compile_definitions(o_mixed_alloc_test_c PUBLIC TEST_OUROBOROS)
-	target_compile_definitions(o_mixed_alloc_test_c PUBLIC TEST_CHUNKS)
-	target_include_directories(o_mixed_alloc_test_c PUBLIC ${BASE_PATH}frameworks/ouroboros/repository/include)
-    target_include_directories(o_mixed_alloc_test_c PUBLIC ${BASE_PATH}externals/ouroboros/)
-    target_link_libraries(o_mixed_alloc_test_c cuda)
-	set_property(TARGET o_mixed_alloc_test_c PROPERTY CUDA_ARCHITECTURES OFF)
-    set_property(TARGET o_mixed_alloc_test_c PROPERTY CUDA_SEPARABLE_COMPILATION ON)
-
-	add_executable(o_mixed_alloc_test_vap
-	perf_mixed_allocation.cu
-	)
-	target_compile_definitions(o_mixed_alloc_test_vap PUBLIC TEST_OUROBOROS)
-	target_compile_definitions(o_mixed_alloc_test_vap PUBLIC TEST_PAGES)
-	target_compile_definitions(o_mixed_alloc_test_vap PUBLIC TEST_VIRTUALIZED_ARRAY)
-	target_include_directories(o_mixed_alloc_test_vap PUBLIC ${BASE_PATH}frameworks/ouroboros/repository/include)
-    target_include_directories(o_mixed_alloc_test_vap PUBLIC ${BASE_PATH}externals/ouroboros/)
-    target_link_libraries(o_mixed_alloc_test_vap cuda)
-	set_property(TARGET o_mixed_alloc_test_vap PROPERTY CUDA_ARCHITECTURES OFF)
-    set_property(TARGET o_mixed_alloc_test_vap PROPERTY CUDA_SEPARABLE_COMPILATION ON)
-
-	add_executable(o_mixed_alloc_test_vac
-	perf_mixed_allocation.cu
-	)
-	target_compile_definitions(o_mixed_alloc_test_vac PUBLIC TEST_OUROBOROS)
-	target_compile_definitions(o_mixed_alloc_test_vac PUBLIC TEST_CHUNKS)
-	target_compile_definitions(o_mixed_alloc_test_vac PUBLIC TEST_VIRTUALIZED_ARRAY)
-	target_include_directories(o_mixed_alloc_test_vac PUBLIC ${BASE_PATH}frameworks/ouroboros/repository/include)
-    target_include_directories(o_mixed_alloc_test_vac PUBLIC ${BASE_PATH}externals/ouroboros/)
-    target_link_libraries(o_mixed_alloc_test_vac cuda)
-	set_property(TARGET o_mixed_alloc_test_vac PROPERTY CUDA_ARCHITECTURES OFF)
-    set_property(TARGET o_mixed_alloc_test_vac PROPERTY CUDA_SEPARABLE_COMPILATION ON)
-
-	add_executable(o_mixed_alloc_test_vlp
-	perf_mixed_allocation.cu
-	)
-	target_compile_definitions(o_mixed_alloc_test_vlp PUBLIC TEST_OUROBOROS)
-	target_compile_definitions(o_mixed_alloc_test_vlp PUBLIC TEST_PAGES)
-	target_compile_definitions(o_mixed_alloc_test_vlp PUBLIC TEST_VIRTUALIZED_LIST)
-	target_include_directories(o_mixed_alloc_test_vlp PUBLIC ${BASE_PATH}frameworks/ouroboros/repository/include)
-    target_include_directories(o_mixed_alloc_test_vlp PUBLIC ${BASE_PATH}externals/ouroboros/)
-    target_link_libraries(o_mixed_alloc_test_vlp cuda)
-	set_property(TARGET o_mixed_alloc_test_vlp PROPERTY CUDA_ARCHITECTURES OFF)
-    set_property(TARGET o_mixed_alloc_test_vlp PROPERTY CUDA_SEPARABLE_COMPILATION ON)
-
-	add_executable(o_mixed_alloc_test_vlc
-	perf_mixed_allocation.cu
-	)
-	target_compile_definitions(o_mixed_alloc_test_vlc PUBLIC TEST_OUROBOROS)
-	target_compile_definitions(o_mixed_alloc_test_vlc PUBLIC TEST_CHUNKS)
-	target_compile_definitions(o_mixed_alloc_test_vlc PUBLIC TEST_VIRTUALIZED_LIST)
-	target_include_directories(o_mixed_alloc_test_vlc PUBLIC ${BASE_PATH}frameworks/ouroboros/repository/include)
-    target_include_directories(o_mixed_alloc_test_vlc PUBLIC ${BASE_PATH}externals/ouroboros/)
-    target_link_libraries(o_mixed_alloc_test_vlc cuda)
-	set_property(TARGET o_mixed_alloc_test_vlc PROPERTY CUDA_ARCHITECTURES OFF)
-    set_property(TARGET o_mixed_alloc_test_vlc PROPERTY CUDA_SEPARABLE_COMPILATION ON)
+#	add_executable(o_alloc_test_vap
+#	perf_allocation.cu
+#	)
+#	target_compile_definitions(o_alloc_test_vap PUBLIC TEST_OUROBOROS)
+#	target_compile_definitions(o_alloc_test_vap PUBLIC TEST_PAGES)
+#	target_compile_definitions(o_alloc_test_vap PUBLIC TEST_VIRTUALIZED_ARRAY)
+#	target_include_directories(o_alloc_test_vap PUBLIC ${BASE_PATH}frameworks/ouroboros/repository/include)
+#    target_include_directories(o_alloc_test_vap PUBLIC ${BASE_PATH}externals/ouroboros/)
+#    target_link_libraries(o_alloc_test_vap cuda)
+#	set_property(TARGET o_alloc_test_vap PROPERTY CUDA_ARCHITECTURES OFF)
+#    set_property(TARGET o_alloc_test_vap PROPERTY CUDA_SEPARABLE_COMPILATION ON)
+#
+#	add_executable(o_alloc_test_vac
+#	perf_allocation.cu
+#	)
+#	target_compile_definitions(o_alloc_test_vac PUBLIC TEST_OUROBOROS)
+#	target_compile_definitions(o_alloc_test_vac PUBLIC TEST_CHUNKS)
+#	target_compile_definitions(o_alloc_test_vac PUBLIC TEST_VIRTUALIZED_ARRAY)
+#	target_include_directories(o_alloc_test_vac PUBLIC ${BASE_PATH}frameworks/ouroboros/repository/include)
+#    target_include_directories(o_alloc_test_vac PUBLIC ${BASE_PATH}externals/ouroboros/)
+#    target_link_libraries(o_alloc_test_vac cuda)
+#	set_property(TARGET o_alloc_test_vac PROPERTY CUDA_ARCHITECTURES OFF)
+#    set_property(TARGET o_alloc_test_vac PROPERTY CUDA_SEPARABLE_COMPILATION ON)
+#
+#	add_executable(o_alloc_test_vlp
+#	perf_allocation.cu
+#	)
+#	target_compile_definitions(o_alloc_test_vlp PUBLIC TEST_OUROBOROS)
+#	target_compile_definitions(o_alloc_test_vlp PUBLIC TEST_PAGES)
+#	target_compile_definitions(o_alloc_test_vlp PUBLIC TEST_VIRTUALIZED_LIST)
+#	target_include_directories(o_alloc_test_vlp PUBLIC ${BASE_PATH}frameworks/ouroboros/repository/include)
+#    target_include_directories(o_alloc_test_vlp PUBLIC ${BASE_PATH}externals/ouroboros/)
+#    target_link_libraries(o_alloc_test_vlp cuda)
+#	set_property(TARGET o_alloc_test_vlp PROPERTY CUDA_ARCHITECTURES OFF)
+#    set_property(TARGET o_alloc_test_vlp PROPERTY CUDA_SEPARABLE_COMPILATION ON)
+#
+#	add_executable(o_alloc_test_vlc
+#	perf_allocation.cu
+#	)
+#	target_compile_definitions(o_alloc_test_vlc PUBLIC TEST_OUROBOROS)
+#	target_compile_definitions(o_alloc_test_vlc PUBLIC TEST_CHUNKS)
+#	target_compile_definitions(o_alloc_test_vlc PUBLIC TEST_VIRTUALIZED_LIST)
+#	target_include_directories(o_alloc_test_vlc PUBLIC ${BASE_PATH}frameworks/ouroboros/repository/include)
+#    target_include_directories(o_alloc_test_vlc PUBLIC ${BASE_PATH}externals/ouroboros/)
+#    target_link_libraries(o_alloc_test_vlc cuda)
+#	set_property(TARGET o_alloc_test_vlc PROPERTY CUDA_ARCHITECTURES OFF)
+#    set_property(TARGET o_alloc_test_vlc PROPERTY CUDA_SEPARABLE_COMPILATION ON)
+#
+#	##########################################################################
+#	##########################################################################
+#	##########################################################################
+#
+#	add_executable(o_mixed_alloc_test_p
+#	perf_mixed_allocation.cu
+#	)
+#	target_compile_definitions(o_mixed_alloc_test_p PUBLIC TEST_OUROBOROS)
+#	target_compile_definitions(o_mixed_alloc_test_p PUBLIC TEST_PAGES)
+#	target_include_directories(o_mixed_alloc_test_p PUBLIC ${BASE_PATH}frameworks/ouroboros/repository/include)
+#    target_include_directories(o_mixed_alloc_test_p PUBLIC ${BASE_PATH}externals/ouroboros/)
+#    target_link_libraries(o_mixed_alloc_test_p cuda)
+#	set_property(TARGET o_mixed_alloc_test_p PROPERTY CUDA_ARCHITECTURES OFF)
+#    set_property(TARGET o_mixed_alloc_test_p PROPERTY CUDA_SEPARABLE_COMPILATION ON)
+#
+#	add_executable(o_mixed_alloc_test_c
+#	perf_mixed_allocation.cu
+#	)
+#	target_compile_definitions(o_mixed_alloc_test_c PUBLIC TEST_OUROBOROS)
+#	target_compile_definitions(o_mixed_alloc_test_c PUBLIC TEST_CHUNKS)
+#	target_include_directories(o_mixed_alloc_test_c PUBLIC ${BASE_PATH}frameworks/ouroboros/repository/include)
+#    target_include_directories(o_mixed_alloc_test_c PUBLIC ${BASE_PATH}externals/ouroboros/)
+#    target_link_libraries(o_mixed_alloc_test_c cuda)
+#	set_property(TARGET o_mixed_alloc_test_c PROPERTY CUDA_ARCHITECTURES OFF)
+#    set_property(TARGET o_mixed_alloc_test_c PROPERTY CUDA_SEPARABLE_COMPILATION ON)
+#
+#	add_executable(o_mixed_alloc_test_vap
+#	perf_mixed_allocation.cu
+#	)
+#	target_compile_definitions(o_mixed_alloc_test_vap PUBLIC TEST_OUROBOROS)
+#	target_compile_definitions(o_mixed_alloc_test_vap PUBLIC TEST_PAGES)
+#	target_compile_definitions(o_mixed_alloc_test_vap PUBLIC TEST_VIRTUALIZED_ARRAY)
+#	target_include_directories(o_mixed_alloc_test_vap PUBLIC ${BASE_PATH}frameworks/ouroboros/repository/include)
+#    target_include_directories(o_mixed_alloc_test_vap PUBLIC ${BASE_PATH}externals/ouroboros/)
+#    target_link_libraries(o_mixed_alloc_test_vap cuda)
+#	set_property(TARGET o_mixed_alloc_test_vap PROPERTY CUDA_ARCHITECTURES OFF)
+#    set_property(TARGET o_mixed_alloc_test_vap PROPERTY CUDA_SEPARABLE_COMPILATION ON)
+#
+#	add_executable(o_mixed_alloc_test_vac
+#	perf_mixed_allocation.cu
+#	)
+#	target_compile_definitions(o_mixed_alloc_test_vac PUBLIC TEST_OUROBOROS)
+#	target_compile_definitions(o_mixed_alloc_test_vac PUBLIC TEST_CHUNKS)
+#	target_compile_definitions(o_mixed_alloc_test_vac PUBLIC TEST_VIRTUALIZED_ARRAY)
+#	target_include_directories(o_mixed_alloc_test_vac PUBLIC ${BASE_PATH}frameworks/ouroboros/repository/include)
+#    target_include_directories(o_mixed_alloc_test_vac PUBLIC ${BASE_PATH}externals/ouroboros/)
+#    target_link_libraries(o_mixed_alloc_test_vac cuda)
+#	set_property(TARGET o_mixed_alloc_test_vac PROPERTY CUDA_ARCHITECTURES OFF)
+#    set_property(TARGET o_mixed_alloc_test_vac PROPERTY CUDA_SEPARABLE_COMPILATION ON)
+#
+#	add_executable(o_mixed_alloc_test_vlp
+#	perf_mixed_allocation.cu
+#	)
+#	target_compile_definitions(o_mixed_alloc_test_vlp PUBLIC TEST_OUROBOROS)
+#	target_compile_definitions(o_mixed_alloc_test_vlp PUBLIC TEST_PAGES)
+#	target_compile_definitions(o_mixed_alloc_test_vlp PUBLIC TEST_VIRTUALIZED_LIST)
+#	target_include_directories(o_mixed_alloc_test_vlp PUBLIC ${BASE_PATH}frameworks/ouroboros/repository/include)
+#    target_include_directories(o_mixed_alloc_test_vlp PUBLIC ${BASE_PATH}externals/ouroboros/)
+#    target_link_libraries(o_mixed_alloc_test_vlp cuda)
+#	set_property(TARGET o_mixed_alloc_test_vlp PROPERTY CUDA_ARCHITECTURES OFF)
+#    set_property(TARGET o_mixed_alloc_test_vlp PROPERTY CUDA_SEPARABLE_COMPILATION ON)
+#
+#	add_executable(o_mixed_alloc_test_vlc
+#	perf_mixed_allocation.cu
+#	)
+#	target_compile_definitions(o_mixed_alloc_test_vlc PUBLIC TEST_OUROBOROS)
+#	target_compile_definitions(o_mixed_alloc_test_vlc PUBLIC TEST_CHUNKS)
+#	target_compile_definitions(o_mixed_alloc_test_vlc PUBLIC TEST_VIRTUALIZED_LIST)
+#	target_include_directories(o_mixed_alloc_test_vlc PUBLIC ${BASE_PATH}frameworks/ouroboros/repository/include)
+#    target_include_directories(o_mixed_alloc_test_vlc PUBLIC ${BASE_PATH}externals/ouroboros/)
+#    target_link_libraries(o_mixed_alloc_test_vlc cuda)
+#	set_property(TARGET o_mixed_alloc_test_vlc PROPERTY CUDA_ARCHITECTURES OFF)
+#    set_property(TARGET o_mixed_alloc_test_vlc PROPERTY CUDA_SEPARABLE_COMPILATION ON)
 
 endif ()
 
