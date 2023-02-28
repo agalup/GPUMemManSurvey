@@ -328,13 +328,7 @@ int main(int argc, char* argv[])
         using MemoryManager2 = std::remove_pointer<decltype(memory_manager.d_memory_manager)>::type;
     #else
         debug("cuda mm\n");
-	    MemoryManager* memory_manager;
-        GUARD_CU(cudaMallocManaged((void**)&memory_manager, sizeof(MemoryManager)));
-        GUARD_CU(cudaDeviceSynchronize());
-        GUARD_CU(cudaPeekAtLastError());
-        new (memory_manager) MemoryManager(allocSizeinGB * 1024ULL * 1024ULL * 1024ULL);
-        GUARD_CU(cudaDeviceSynchronize());
-        GUARD_CU(cudaPeekAtLastError());
+	    MemoryManager memory_manager(allocSizeinGB * 1024ULL * 1024ULL * 1024ULL);
         using MemoryManager2 = MemoryManager;
     #endif
 #else
@@ -356,6 +350,7 @@ int main(int argc, char* argv[])
 	    //MemoryManager memory_manager(allocSizeinGB * 1024ULL * 1024ULL * 1024ULL);
         using MemoryManager2 = MemoryManager;
 #endif
+        
         Runtime<MemoryManager2> rs;
         int app_sm = 70;
 
@@ -371,10 +366,10 @@ int main(int argc, char* argv[])
     #else
         #ifdef CALLBACK__
             debug("RS with direct ptr to mm and callback!\n");
-            rs.init(num_allocations, 0, memory_manager, app_sm, 5, 4, 1, blockSize, 1);
+            rs.init(num_allocations, 0, &memory_manager, app_sm, 5, 4, 1, blockSize, 1);
         #else
             debug("RS with direct ptr to mm\n");
-            rs.init(num_allocations, 0, memory_manager, app_sm, 5, 4, blockSize, 1);
+            rs.init(num_allocations, 0, &memory_manager, app_sm, 5, 4, blockSize, 1);
         #endif
     #endif
 #else
@@ -393,7 +388,6 @@ int main(int argc, char* argv[])
         GUARD_CU((cudaError_t)cuCtxSynchronize());
         CUcontext current_ctx;
         GUARD_CU((cudaError_t)cuCtxPopCurrent(&current_ctx));
-        debug("current was %d\n", current_ctx);
 
         std::cout << "#" << std::flush;
 
@@ -411,8 +405,12 @@ int main(int argc, char* argv[])
             void* args[] = {&rs, &d_memory, &num_allocations, &allocation_size_byte};
             timing_allocation.startMeasurement();
             if(warp_based){
+                debug("run sync alloc test warp based\n");
+                fflush(stdout);
                 rs.run_sync((void*)d_testAllocation_RS<Runtime<MemoryManager2>, true>, gridSize, blockSize, args, app_ctx);
             }else{
+                debug("run sync alloc test non warp based\n");
+                fflush(stdout);
                 rs.run_sync((void*)d_testAllocation_RS<Runtime<MemoryManager2>, false>, gridSize, blockSize, args, app_ctx);
             }
             timing_allocation.stopMeasurement();
