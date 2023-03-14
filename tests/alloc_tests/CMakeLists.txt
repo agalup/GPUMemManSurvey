@@ -54,14 +54,14 @@ if(TEST_CUDA)
 	set_property(TARGET c_alloc_test PROPERTY CUDA_ARCHITECTURES OFF)
     set_property(TARGET c_alloc_test PROPERTY CUDA_SEPARABLE_COMPILATION ON)
 
-	add_executable(c_mixed_alloc_test
-		perf_mixed_allocation.cu
-	)
-	target_compile_definitions(c_mixed_alloc_test PUBLIC TEST_CUDA)
-	target_include_directories(c_mixed_alloc_test PUBLIC ${BASE_PATH}frameworks/ouroboros/repository/include)
-    target_link_libraries(c_mixed_alloc_test cuda)
-	set_property(TARGET c_mixed_alloc_test PROPERTY CUDA_ARCHITECTURES OFF)
-    set_property(TARGET c_mixed_alloc_test PROPERTY CUDA_SEPARABLE_COMPILATION ON)
+#	add_executable(c_mixed_alloc_test
+#		perf_mixed_allocation.cu
+#	)
+#	target_compile_definitions(c_mixed_alloc_test PUBLIC TEST_CUDA)
+#	target_include_directories(c_mixed_alloc_test PUBLIC ${BASE_PATH}frameworks/ouroboros/repository/include)
+#    target_link_libraries(c_mixed_alloc_test cuda)
+#	set_property(TARGET c_mixed_alloc_test PROPERTY CUDA_ARCHITECTURES OFF)
+#    set_property(TARGET c_mixed_alloc_test PROPERTY CUDA_SEPARABLE_COMPILATION ON)
 
 endif()
 
@@ -166,16 +166,16 @@ if(TEST_OUROBOROS)
 	set_property(TARGET o_alloc_test_p PROPERTY CUDA_ARCHITECTURES OFF)
     set_property(TARGET o_alloc_test_p PROPERTY CUDA_SEPARABLE_COMPILATION ON)
 
-	add_executable(o_alloc_test_c
-	perf_allocation.cu
-	)
-	target_compile_definitions(o_alloc_test_c PUBLIC TEST_OUROBOROS)
-	target_compile_definitions(o_alloc_test_c PUBLIC TEST_CHUNKS)
-	target_include_directories(o_alloc_test_c PUBLIC ${BASE_PATH}frameworks/ouroboros/repository/include)
-    target_include_directories(o_alloc_test_c PUBLIC ${BASE_PATH}externals/ouroboros/)
-    target_link_libraries(o_alloc_test_c cuda)
-	set_property(TARGET o_alloc_test_c PROPERTY CUDA_ARCHITECTURES OFF)
-    set_property(TARGET o_alloc_test_c PROPERTY CUDA_SEPARABLE_COMPILATION ON)
+#	add_executable(o_alloc_test_c
+#	perf_allocation.cu
+#	)
+#	target_compile_definitions(o_alloc_test_c PUBLIC TEST_OUROBOROS)
+#	target_compile_definitions(o_alloc_test_c PUBLIC TEST_CHUNKS)
+#	target_include_directories(o_alloc_test_c PUBLIC ${BASE_PATH}frameworks/ouroboros/repository/include)
+#    target_include_directories(o_alloc_test_c PUBLIC ${BASE_PATH}externals/ouroboros/)
+#    target_link_libraries(o_alloc_test_c cuda)
+#	set_property(TARGET o_alloc_test_c PROPERTY CUDA_ARCHITECTURES OFF)
+#    set_property(TARGET o_alloc_test_c PROPERTY CUDA_SEPARABLE_COMPILATION ON)
 
 #	add_executable(o_alloc_test_vap
 #	perf_allocation.cu
