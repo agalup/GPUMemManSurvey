@@ -8,8 +8,6 @@
 #include "DevicePerformanceMeasure.cuh"
 #include "runtime_system_one_srvc.cuh"
 
-#define STD_MEM_MAN__
-
 // ########################
 #ifdef TEST_CUDA
 #include "cuda/Instance.cuh"
@@ -91,28 +89,15 @@ __global__ void d_testAllocation_RS(Runtime rs, volatile int** verification_ptr,
 			return;
 		if(threadIdx.x % 32 == 0){
             rs.malloc((volatile int**)&verification_ptr[tid], allocation_size);
-            assert(verification_ptr[tid]);
         }
 	}
 	else
 	{
 		tid = threadIdx.x + blockIdx.x * blockDim.x;
-        if (tid == 0){
-            debug("num allocations %d, allocation_size %d\n", num_allocations, allocation_size);
-        }
 		if(tid >= num_allocations)
 			return;
 
         rs.malloc((volatile int**)&verification_ptr[tid], allocation_size);
-        if (verification_ptr[tid]){
-            printf("allocated: verification ptr[tid] %p, size %lu\n", verification_ptr[tid], allocation_size);
-            //printf("verification_ptr[tid][0] = %d\n", verification_ptr[tid][0]);
-            //verification_ptr[tid][0] = tid;
-            debug("allocation completed! %d\n", tid);
-        }
-        __threadfence();
-        __syncthreads();
-        assert(verification_ptr[tid]);
 	}
 }
 
@@ -190,11 +175,6 @@ __global__ void d_testWriteToMemory(volatile int** verification_ptr, int num_all
 
 	for(auto i = 0; i < (allocation_size / sizeof(int)); ++i)
 	{
-        debug("tid %d, i %d\n", tid, i);
-        printf("addr verification_ptr[tid] %p\n", verification_ptr[tid]);
-        printf("addr ptr %p\n", ptr);
-        printf("addr ptr[i] %p\n", &ptr[i]);
-        printf("ptr[i] %d\n", ptr[i]);;
 		ptr[i] = tid;
 	}
 }
@@ -220,8 +200,6 @@ __global__ void d_testReadFromMemory(volatile int** verification_ptr, int num_al
 int main(int argc, char* argv[])
 {
 	// Usage: <num_allocations> <size_of_allocation_in_byte> <num_iterations> <onDeviceMeasure> <warp-based> <generateoutput> <free_memory> <initial_path>
-    CHECK_ERROR(cudaDeviceSynchronize());
-    CHECK_ERROR(cudaPeekAtLastError());
 	unsigned int num_allocations{10000};
 	unsigned int allocation_size_byte{8192};
 	int num_iterations {100};
@@ -292,53 +270,19 @@ int main(int argc, char* argv[])
     debug("generate_output %d\n", generate_output);
     debug("free memory %d\n", free_memory);
     
-    CHECK_ERROR(cudaDeviceSynchronize());
-    CHECK_ERROR(cudaPeekAtLastError());
-
-#ifdef STD_MEM_MAN__
-    size_t limit;
-    CHECK_ERROR(cudaDeviceGetLimit(&limit, cudaLimitMallocHeapSize));
-    printf("old limit %lu, to allocate is %d\n", limit, num_allocations*allocation_size_byte);
-    CHECK_ERROR(cudaDeviceSetLimit(cudaLimitMallocHeapSize, num_allocations*allocation_size_byte));
-    CHECK_ERROR(cudaDeviceGetLimit(&limit, cudaLimitMallocHeapSize));
-    printf("new limit %lu\n", limit);
-#else
-    #ifdef TEST_CUDA
-    printf("test cuda defined\n");
-    #endif
-    #ifdef TEST_OUROBOROS
-    printf("test ouroboros defined\n");
-    #endif
-#endif
-
 	allocation_size_byte = Utils::alignment(allocation_size_byte, sizeof(int));
 	if(print_output)
 		std::cout << "Number of Allocations: " << num_allocations << " | Allocation Size: " << allocation_size_byte << std::endl;
 
-    CHECK_ERROR(cudaDeviceSynchronize());
-    CHECK_ERROR(cudaPeekAtLastError());
-    /*int * tmp_dev;
-    CHECK_ERROR(cudaMalloc((void**)&tmp_dev, sizeof(int)));*/
-    debug("device %d\n", device);
 	CHECK_ERROR(cudaSetDevice(device));
-    CHECK_ERROR(cudaDeviceSynchronize());
-    CHECK_ERROR(cudaPeekAtLastError());
 	cudaDeviceProp prop;
 	CHECK_ERROR(cudaGetDeviceProperties(&prop, device));
 	std::cout << "Going to use " << prop.name << " " << prop.major << "." << prop.minor << "\n";
 	std::cout << "--- " << mem_name << "---\n";
 
-    CHECK_ERROR(cudaDeviceSynchronize());
-    CHECK_ERROR(cudaPeekAtLastError());
 	volatile int** d_memory{nullptr};
 	CHECK_ERROR(cudaMalloc((void**)&d_memory, sizeof(volatile int*) * (num_allocations)));
-    CHECK_ERROR(cudaDeviceSynchronize());
-    CHECK_ERROR(cudaPeekAtLastError());
 
-    //CUcontext current;
-    //GUARD_CU((cudaError_t)cuCtxGetCurrent(&current));
-    //debug("current ctx %d\n", current);
-    
     std::ofstream results_alloc, results_free;
 	if(generate_output)
 	{
@@ -348,81 +292,41 @@ int main(int argc, char* argv[])
 
 	int blockSize {256};
 	int gridSize {Utils::divup<int>(num_allocations, blockSize)};
-    printf("blockSize %d, gridSize %d\n", blockSize, gridSize);
 	if(warp_based)
 		gridSize *= 32;
 
 	PerfMeasure timing_allocation;
 	PerfMeasure timing_free;
 
-	DevicePerfMeasure per_thread_timing_allocation(num_allocations, num_iterations);
-	DevicePerfMeasure per_thread_timing_free(num_allocations, num_iterations);
+    DevicePerfMeasure per_thread_timing_allocation(num_allocations, num_iterations);
+    DevicePerfMeasure per_thread_timing_free(num_allocations, num_iterations);
 
     size_t mem_pool_size = (size_t)(allocSizeinGB*1024ULL*1024ULL*1024ULL);
 
-	for(auto it = 0; it < num_iterations; ++it)
+    for(auto it = 0; it < num_iterations; ++it)
     {
-        CUcontext tmp_ctx;
-        GUARD_CU((cudaError_t)cuCtxGetCurrent(&tmp_ctx));
-        debug("cr ctx %p\n", tmp_ctx);
-
         debug("memory pool available to allocate: %lu, app is going to allocate in total %u\n", mem_pool_size, num_allocations*allocation_size_byte); 
-	    //MemoryManager memory_manager(mem_pool_size);
-#ifndef STD_MEM_MAN__
-    #ifdef TEST_OUROBOROS
+        MemoryManager memory_manager(mem_pool_size);
+
+#ifdef TEST_OUROBOROS
         debug("mm with direct mm ptr type\n");
-	    MemoryManager memory_manager(mem_pool_size);
         using MemoryManager2 = std::remove_pointer<decltype(memory_manager.d_memory_manager)>::type;
-    #else
-        debug("cuda mm\n");
-	    MemoryManager memory_manager(mem_pool_size);
-        
-        /*
-	    MemoryManager* memory_manager = NULL;
-        GUARD_CU((cudaError_t)cudaMallocManaged((void**)&memory_manager, sizeof(MemoryManager)));
-        debug("memory_manager %p\n", memory_manager);
-        new(memory_manager) MemoryManager(mem_pool_size);
-        GUARD_CU((cudaError_t)cudaMemPrefetchAsync((MemoryManager*)memory_manager, sizeof(MemoryManager), device,
-        NULL));
-        debug("memory_manager %p\n", memory_manager);*/
-        using MemoryManager2 = MemoryManager;
-    #endif
 #else
-        using MemoryManager2 = void;
+        debug("cuda mm\n");
+        using MemoryManager2 = MemoryManager;
 #endif
         
         Runtime<MemoryManager2> rs;
         int app_sm = 70;
 
-#ifndef STD_MEM_MAN__
-    #ifdef TEST_OUROBOROS
-        #ifdef CALLBACK__
-            debug("RS with direct ptr to mm and callback!\n");
-            rs.init(num_allocations, 0, memory_manager.d_memory_manager, mem_pool_size, 1, app_sm, 5, 4, 1, blockSize, 1);
-        #else
-            debug("RS with direct ptr to mm\n");
-            rs.init(num_allocations, 0, memory_manager.d_memory_manager, mem_pool_size, app_sm, 5, 4, blockSize, 1);
-        #endif
-    #else
-        #ifdef CALLBACK__
-            debug("RS without direct ptr to mm and callback!\n");
-            //rs.init(num_allocations, 0, &memory_manager, mem_pool_size, app_sm, 5, 4, 1, blockSize, 1);
-            //rs.init(num_allocations, 0, memory_manager, mem_pool_size, app_sm, 5, 4, 1, blockSize, 1);
-            rs.init(num_allocations, 0, (MemoryManager*)NULL, mem_pool_size, app_sm, 5, 4, 1, blockSize, 1);
-        #else
-            debug("RS without direct ptr to mm\n");
-            //rs.init(num_allocations, 0, &memory_manager, mem_pool_size, app_sm, 5, 4, blockSize, 1);
-            //rs.init(num_allocations, 0, memory_manager, mem_pool_size, app_sm, 5, 4, blockSize, 1);
-            rs.init(num_allocations, 0, (MemoryManager*)NULL, mem_pool_size, app_sm, 5, 4, blockSize, 1);
-        #endif
-    #endif
+#ifdef TEST_OUROBOROS
+        debug("RS with direct ptr to mm\n");
+        rs.init(num_allocations, 0, memory_manager.d_memory_manager, mem_pool_size, app_sm, 5, 4, blockSize, 1);
 #else
-        debug("std malloc\n");
-        rs.init(num_allocations, 0, app_sm, 5, 4, blockSize, 1);
+        debug("RS without direct ptr to mm\n");
+        rs.init(num_allocations, 0, (MemoryManager*)NULL, mem_pool_size, app_sm, 5, 4, blockSize, 1);
 #endif
 
-        //test<<<1, 1>>>(&rs);
-      
         CUcontext current;
         GUARD_CU((cudaError_t)cuCtxGetCurrent(&current));
         debug("current ctx %p\n", current);
@@ -438,7 +342,7 @@ int main(int argc, char* argv[])
         debug("app ctx %p\n", app_ctx);
         GUARD_CU((cudaError_t)cuCtxSynchronize());
 
-        std::cout << "# " << it << "\n" << std::flush;
+        std::cout << "# " << std::flush;// << it << "\n" << std::flush;
 
         GUARD_CU((cudaError_t)cuCtxSynchronize());
 
@@ -454,37 +358,25 @@ int main(int argc, char* argv[])
             void* args[] = {&rs, &d_memory, &num_allocations, &allocation_size_byte};
             timing_allocation.startMeasurement();
             if(warp_based){
-                debug("run sync alloc test warp based\n");
-                fflush(stdout);
                 rs.run_sync((void*)d_testAllocation_RS<Runtime<MemoryManager2>, true>, gridSize, blockSize, args, app_ctx);
             }else{
-                debug("run sync alloc test non warp based\n");
-                fflush(stdout);
                 rs.run_sync((void*)d_testAllocation_RS<Runtime<MemoryManager2>, false>, gridSize, blockSize, args, app_ctx);
             }
             timing_allocation.stopMeasurement();
             CHECK_ERROR(cudaDeviceSynchronize());
         }
-        fflush(stdout);
         
-        GUARD_CU((cudaError_t)cuCtxGetCurrent(&tmp_ctx));
-        debug("current ctx %d\n", tmp_ctx);
-        printf("write\n");
+        debug("write\n");
         void* args2[] = {&d_memory, &num_allocations, &allocation_size_byte};
         rs.run_sync((void*)d_testWriteToMemory, gridSize, blockSize, args2, app_ctx);
-        printf("read\n");
-        GUARD_CU((cudaError_t)cuCtxGetCurrent(&tmp_ctx));
-        debug("current ctx %d\n", tmp_ctx);
-        ///void* args3[] = {&d_memory, &num_allocations, &allocation_size_byte};
-        //rs.run_sync((void*)d_testReadFromMemory, gridSize, blockSize, args3, app_ctx);
-        printf("free\n");
+        rs.run_sync((void*)d_testReadFromMemory, gridSize, blockSize, args2, app_ctx);
+        
         if(free_memory)
         {
             if(onDeviceMeasure)
             {
                 void* args[] = {&rs, &d_memory, &num_allocations, per_thread_timing_allocation.getDevicePtr()};
                 rs.run_sync((void*)d_testFree_RS<Runtime<MemoryManager2>>, gridSize, blockSize, args, app_ctx);
-                //d_testFree_RS <<<gridSize, blockSize>>>(rs, d_memory, num_allocations, per_thread_timing_free.getDevicePtr());
                 CHECK_ERROR(cudaDeviceSynchronize());
                 per_thread_timing_free.acceptResultsFromDevice();
             }
@@ -494,7 +386,6 @@ int main(int argc, char* argv[])
                 timing_free.startMeasurement();
                 if(warp_based){
                     rs.run_sync((void*)d_testFree_RS<Runtime<MemoryManager2>, true>, gridSize, blockSize, args, app_ctx);
-                    //d_testFree_RS <MemoryManager2, true> <<<gridSize, blockSize>>>(rs, d_memory, num_allocations);
                 }else{
                     rs.run_sync((void*)d_testFree_RS<Runtime<MemoryManager2>, false>, gridSize, blockSize, args, app_ctx);
                 }
