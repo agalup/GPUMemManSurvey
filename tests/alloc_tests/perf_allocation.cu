@@ -80,7 +80,8 @@ const std::string mem_name("FDGMalloc");
 
 
 template <typename MemoryManagerType, bool warp_based>
-__launch_bounds__(256, 1)
+//__launch_bounds__(256, 1)
+__launch_bounds__(512, 1)
 __global__ void d_testAllocation(MemoryManagerType mm, int** verification_ptr, int num_allocations, int allocation_size)
 {
 	int tid{0};
@@ -106,24 +107,24 @@ extern "C"
 __noinline__
 //__forceinline__
 __device__
-int __attribute__ ((regparm(30))) 
+int //__attribute__ ((regparm(30))) 
 callee(long long int a1,  long long int a2,  long long int a3,  long long int a4,  long long int a5, 
        long long int a6,  long long int a7,  long long int a8,  long long int a9,  long long int a10,
-       long long int a11, long long int a12, long long int a13, long long int a14, long long int a15, 
-       long long int a16, long long int a17, long long int a18, long long int a19, long long int a20,
+       long long int a11, long long int a12, long long int a13, long long int a14){/*, long long int a15
+       long long int a16, long long int a17, long long int a18, long long int a19, long long int a20
        long long int a21, long long int a22, long long int a23, long long int a24, long long int a25, 
-       long long int a26, long long int a27, long long int a28){//, long long int a29){//, long long int a30){
+       long long int a26, long long int a27, long long int a28, long long int a29, long long int a30){*/
 
-       __shared__ long long int tab[30];
+     //  __shared__ long long int tab[10];
 
-        #pragma unroll
-        for (int i=0; i<20; ++i){
-            tab[0] = a1;
+ //       #pragma unroll
+ //       for (int i=0; i<20; ++i){
+      /*      tab[0] = a1;
             tab[1] = a2;
             tab[2] = a3;
             tab[3] = a4;
             tab[4] = a5;
-            tab[5] = a6;
+            tab[5] = a6;*/
         /*asm volatile("mov.u32 %0, %laneid;" : "=r"(a1));
         asm volatile("mov.u32 %0, %laneid;" : "=r"(a2));
         a1 += a2;
@@ -148,9 +149,9 @@ callee(long long int a1,  long long int a2,  long long int a3,  long long int a4
         asm volatile("mov.u32 %0, %laneid;" : "=r"(a18));
         asm volatile("mov.u32 %0, %laneid;" : "=r"(a19));
         asm volatile("mov.u32 %0, %laneid;" : "=r"(a20));*/
-        }
-        unsigned all = a1 + a2 + a3 + a4 + a5 + a6 + a7 + a8 + a9 + a10 + a11 + a12 + a13 + a14 + a15 + a16 + a17 +
-        a18 + a19 + a20;
+  //      }
+        //unsigned all = a1 + a2 + a3;//+ a4 + a5 + a6 + a7 + a8 + a9 + a10 + a11 + a12 + a13 + a14;//+ a15;
+        // + a16 + a17 +a18 + a19 + a20;
         /*
         asm volatile(".reg .u32 t1;\n\t"
                     ".reg .u32 t2;\n\t"
@@ -160,18 +161,18 @@ callee(long long int a1,  long long int a2,  long long int a3,  long long int a4
                        : "=r"(all) : "r"(all), "r"(a4));
 */
 
-    return all;
+    return a1;//all;
 }
 
 template <typename Runtime, bool warp_based>
 __global__  
 //__launch_bounds__(512, 1)
-__launch_bounds__(256, 1)
+__launch_bounds__(512, 1)
 void d_testAllocation_RS(Runtime rs, volatile int** verification_ptr, unsigned int num_allocations, unsigned
 int allocation_size)
 {
     
-	register int tid{0};
+	/*register*/ int tid{0};
    // register 
    // int x1{0}, x2{0}, x3{0}, x4{0}, x5{0}, x6{0}, x7{0}, x8{0}, x9{0}, x10{0};;
 	if(warp_based)
@@ -194,8 +195,8 @@ int allocation_size)
         //printf("result = %d\n", result);
 
         __shared__ long long int ret, ret2, ret3, ret4, ret5, ret6, ret7, ret8,
-        ret9, ret10, ret11, ret12, ret13, ret14,
-        ret15, ret16, ret17, ret18, ret19, ret20, ret21, ret22, ret23, ret24, ret25, ret26, ret27, ret28;
+        ret9, ret10, ret11, ret12, ret13, ret14;
+        //ret15, ret16, ret17, ret18, ret19, ret20;//, ret21, ret22, ret23, ret24, ret25, ret26, ret27, ret28;
         //, ret29;
         /*ret30;*/
         //register unsigned ret = tid, ret2=allocation_size, ret3=verification_ptr[tid][0], ret4=blockIdx.x,
@@ -221,7 +222,7 @@ int allocation_size)
                     ".reg .u64 t12;\n\t"
                     ".reg .u64 t13;\n\t"
                     ".reg .u64 t14;\n\t"
-                    ".reg .u64 t15;\n\t"
+                    /*".reg .u64 t15;\n\t"
                     ".reg .u64 t16;\n\t"
                     ".reg .u64 t17;\n\t"
                     ".reg .u64 t18;\n\t"
@@ -235,7 +236,7 @@ int allocation_size)
                     ".reg .u64 t26;\n\t"
                     ".reg .u64 t27;\n\t"
                     ".reg .u64 t28;\n\t"
-                    /*".reg .u64 t29;\n\t"
+                    ".reg .u64 t29;\n\t"
                     ".reg .u64 t30;\n\t"*/
                     "mov.u64 t1, %1;\n\t" 
                     "mov.u64 t2, %2;\n\t" 
@@ -251,30 +252,31 @@ int allocation_size)
                     "mov.u64 t12, %12;\n\t" 
                     "mov.u64 t13, %13;\n\t" 
                     "mov.u64 t14, %14;\n\t" 
-                    "mov.u64 t15, %15;\n\t"
+                    /*"mov.u64 t15, %15;\n\t"
                     "mov.u64 t16, %16;\n\t" 
                     "mov.u64 t17, %17;\n\t" 
                     "mov.u64 t18, %18;\n\t" 
                     "mov.u64 t19, %19;\n\t" 
                     "mov.u64 t20, %20;\n\t"
-                    "mov.u64 t1, %21;\n\t" 
-                    "mov.u64 t2, %22;\n\t" 
-                    "mov.u64 t3, %23;\n\t" 
-                    "mov.u64 t4, %24;\n\t" 
-                    "mov.u64 t5, %25;\n\t"
-                    "mov.u64 t6, %26;\n\t" 
-                    "mov.u64 t7, %27;\n\t" 
-                    "mov.u64 t8, %28;\n\t" 
-                    /*"mov.u64 t9, %29;\n\t" 
+                    "mov.u64 t21, %21;\n\t" 
+                    "mov.u64 t22, %22;\n\t" 
+                    "mov.u64 t23, %23;\n\t" 
+                    "mov.u64 t24, %24;\n\t" 
+                    "mov.u64 t25, %25;\n\t"
+                    "mov.u64 t26, %26;\n\t" 
+                    "mov.u64 t27, %27;\n\t" 
+                    "mov.u64 t28, %28;\n\t" 
+                    "mov.u64 t9, %29;\n\t" 
                     "mov.u64 t10, %30;\n\t"*/
                     ".param .b32 retval0;\n\t"
-                    "call.uni (retval0), callee, (t1, t2, t3, t4, t5, t6, t7, t8, t9, t10, t11, t12, t13, t14, t15, t16, t17,t18, t19, t20, t21, t22, t23, t24, t25, t26, t27, t28);\n\t" /*t29,t30);\n\t"*/
+                    "call.uni (retval0), callee, (t1, t2, t3, t4, t5, t6, t7, t8, t9, t10, t11, t12, t13, t14);\n\t"
+                    /*t15, t16, t17, t18, t19, t20, t21, t22, t23, t24, t25, t26, t27, t28, t29,t30);\n\t"*/
                     "ld.param.b32 %0, [retval0+0];\n\t"
                     "}\n\t"
                     : "=l"(ret) : "l"(result), "l"(ret2), "l"(ret3), "l"(ret4), "l"(ret5), "l"(ret6), "l"(ret7),
-                    "l"(ret8),  "l"(ret9),  "l"(ret10), "l"(ret11), "l"(ret12), "l"(ret13), "l"(ret14), "l"(ret15),
-                    "l"(ret16), "l"(ret17), "l"(ret18), "l"(ret19), "l"(ret20), "l"(ret21), "l"(ret22), "l"(ret23),
-                    "l"(ret24), "l"(ret25), "l"(ret26), "l"(ret27), "l"(ret28));/*, "l"(ret29));, "l"(ret30)
+                    "l"(ret8),  "l"(ret9),  "l"(ret10), "l"(ret11), "l"(ret12), "l"(ret13), "l"(ret14));//, "l"(ret15));
+                    /*"l"(ret16), "l"(ret17), "l"(ret18), "l"(ret19), "l"(ret20), "l"(ret21), "l"(ret22), "l"(ret23),
+                    "l"(ret24), "l"(ret25), "l"(ret26), "l"(ret27), "l"(ret28), "l"(ret29));, "l"(ret30)
                     );*/
 	}
 }
@@ -483,9 +485,9 @@ int main(int argc, char* argv[])
 		results_free.open(free_csv_path.c_str(), std::ios_base::app);
 	}
 
-	int blockSize {256};
+	//int blockSize {256};
 	//int blockSize {1024};
-	//int blockSize {512};
+	int blockSize {512};
 	int gridSize {Utils::divup<int>(num_allocations, blockSize)};
 	if(warp_based)
 		gridSize *= 32;
