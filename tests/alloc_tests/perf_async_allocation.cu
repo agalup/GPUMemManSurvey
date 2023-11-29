@@ -503,6 +503,13 @@ int main(int argc, char* argv[])
     printf("\n");
 {
 	struct cudaFuncAttributes funcAttribMalloc;
+    printf("Memory Manager Service <MemoryManager>\n");
+	CHECK_ERROR(cudaFuncGetAttributes(&funcAttribMalloc, mem_manager_service<MemoryManager>));
+    get_kernel_attributes(funcAttribMalloc);
+}
+    printf("\n");
+{
+	struct cudaFuncAttributes funcAttribMalloc;
     printf("Memory Manager Service <MemoryManager2>\n");
 	CHECK_ERROR(cudaFuncGetAttributes(&funcAttribMalloc, mem_manager_service<MemoryManager2>));
     get_kernel_attributes(funcAttribMalloc);
@@ -550,10 +557,12 @@ int main(int argc, char* argv[])
     int active_app_warps = app_sm * 2048;
     int active_mm_warps = mm_blockSize * mm_gridSize; //for persistent kernel all its blocks are always active.
 
-    if (runtime){
-        printf("Fissioned application\n");
-    }else{
-        printf("Monolithic application\n");
+    if (runtime == 2){
+        printf("Async Fissioned Application\n");
+    }else if (runtime == 1){
+        printf("Fissioned Application\n");
+    }else if (runtime == 0){
+        printf("Monolithic Application\n");
     }
 
     //printf("# active app warps per active service warp %d\n", gridSize*blockSize/(mm_gridSize*mm_blockSize));
