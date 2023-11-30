@@ -324,6 +324,7 @@ int main(int argc, char* argv[])
     int mm_gridSize {26};
     int blockSize {1024};
 	std::string alloc_csv_path{"../results/tmp/"};
+	std::string write_csv_path{"../results/tmp/"};
 	std::string free_csv_path{"../results/tmp/"};
 	//int allocSizeinGB{8};
 	int allocSizeinGB{16};
@@ -379,13 +380,17 @@ int main(int argc, char* argv[])
                                                             alloc_csv_path = std::string(argv[14]);
                                                             if(argc >= 16)
                                                             {
-                                                                free_csv_path = std::string(argv[15]);
-                                                                if(argc >= 17)
+                                                                write_csv_path = std::string(argv[15]);
+                                                                if (argc >= 17)
                                                                 {
-                                                                    allocSizeinGB = atoi(argv[16]);
+                                                                    free_csv_path = std::string(argv[16]);
                                                                     if(argc >= 18)
                                                                     {
-                                                                        device = atoi(argv[17]);
+                                                                        allocSizeinGB = atoi(argv[17]);
+                                                                        if(argc >= 19)
+                                                                        {
+                                                                            device = atoi(argv[18]);
+                                                                        }
                                                                     }
                                                                 }
                                                             }
@@ -427,10 +432,11 @@ int main(int argc, char* argv[])
     //double min_time = 100.0;
     //int factor = 20;
     //for (int factor = 10; factor < 30; factor+=1){
-    std::ofstream results_alloc, results_free;
+    std::ofstream results_alloc, results_write, results_free;
 	if(generate_output)
 	{
 		results_alloc.open(alloc_csv_path.c_str(), std::ios_base::app);
+        results_write.open(write_csv_path.c_str(), std::ios_base::app);
 		results_free.open(free_csv_path.c_str(), std::ios_base::app);
 	}
 	//int blockSize {1024};
@@ -443,6 +449,7 @@ int main(int argc, char* argv[])
 
 	PerfMeasure timing_allocation;
 	PerfMeasure timing_free;
+	PerfMeasure timing_write;
 
     DevicePerfMeasure per_thread_timing_allocation(num_allocations, num_iterations);
     DevicePerfMeasure per_thread_timing_free(num_allocations, num_iterations);
@@ -457,7 +464,8 @@ int main(int argc, char* argv[])
 #else
     using MemoryManager2 = MemoryManager;
 #endif
-    
+
+  /*  
     printf("block size %d, # blocks %d\n", blockSize, gridSize);
 {
 	struct cudaFuncAttributes funcAttribMalloc;
@@ -474,12 +482,13 @@ int main(int argc, char* argv[])
     int maxWarps = prop.maxThreadsPerMultiProcessor/prop.warpSize;
     printf("occupancy %lf %\n", (double)activeWarps/maxWarps * 100);
 }
+*/
     Runtime<MemoryManager2> rs;
     //int app_sm = 0;
     //int mm_sm = 0;
     int multi_processor_count = prop.multiProcessorCount;
     fflush(stdout);
-    
+ /*   
     printf("\n");
 {
 	struct cudaFuncAttributes funcAttribMalloc;
@@ -530,6 +539,7 @@ int main(int argc, char* argv[])
     printf("occupancy %lf %\n", (double)activeWarps/maxWarps * 100);
 }
     printf("\n");
+    */
 
     rs.init(num_allocations, 0, memory_manager.d_memory_manager, mem_pool_size, app_sm/*, factor*/, multi_processor_count,
     mm_sm, mm_blockSize, mm_gridSize);//, mm_blocks_per_sm);
@@ -567,14 +577,25 @@ int main(int argc, char* argv[])
 
     //printf("# active app warps per active service warp %d\n", gridSize*blockSize/(mm_gridSize*mm_blockSize));
     printf("# active app warps per active service warp %d\n", active_app_warps/active_mm_warps);
-	
+
+   
+    int** d_memory{nullptr};
+    if (runtime == 1 or runtime == 0){
+        CHECK_ERROR(cudaMalloc((void**)&d_memory, sizeof(volatile int*) * (num_allocations)));
+        CHECK_ERROR(cudaDeviceSynchronize());
+    }
+
+    Runtime<MemoryManager2>::Future* d_memory_f{nullptr};
+    if (runtime == 2){
+        CHECK_ERROR(cudaMalloc((void**)&d_memory, sizeof(Runtime<MemoryManager2>::Future) * (num_allocations)));
+        CHECK_ERROR(cudaDeviceSynchronize());
+    }
 
     for(auto it = 0; it < num_iterations; ++it)
     {
         std::cout << "#" << std::flush;// << it << "\n" << std::flush;
+        CHECK_ERROR(cudaDeviceSynchronize());
         if (runtime == 1){ //runtime
-            int** d_memory{nullptr};
-            CHECK_ERROR(cudaMalloc((void**)&d_memory, sizeof(volatile int*) * (num_allocations)));
             {
                 void* args[] = {&rs, &d_memory, &num_allocations, &allocation_size_byte};
                 timing_allocation.startMeasurement();
@@ -587,10 +608,17 @@ int main(int argc, char* argv[])
                 }
                 timing_allocation.stopMeasurement();
             }
+            CHECK_ERROR(cudaDeviceSynchronize());
 
             void* args2[] = {&d_memory, &num_allocations, &allocation_size_byte};
+            
+            timing_write.startMeasurement();
             rs.run_sync((void*)d_testWriteToMemory, gridSize, blockSize, args2, app_ctx);
+            timing_write.stopMeasurement();
+            CHECK_ERROR(cudaDeviceSynchronize());
+            
             rs.run_sync((void*)d_testReadFromMemory, gridSize, blockSize, args2, app_ctx);
+            CHECK_ERROR(cudaDeviceSynchronize());
 
             {
                 void* args[] = {&rs, &d_memory, &num_allocations};
@@ -602,19 +630,11 @@ int main(int argc, char* argv[])
                 }
                 timing_free.stopMeasurement();
             }
-            GUARD_CU(cudaFree(d_memory));
-        }if (runtime == 2){ //async runtime
-            Runtime<MemoryManager2>::Future* d_memory{nullptr};
-	        CHECK_ERROR(cudaMalloc((void**)&d_memory, sizeof(Runtime<MemoryManager2>::Future) * (num_allocations)));
-            /*{
-                int blocksize = 1024;
-                int gridsize = (num_allocations + num_allocations - 1)/1024;
-                constructFuture<Runtime<MemoryManager2>> <<<gridsize, blocksize>>> (d_memory, num_allocations);
-                CHECK_ERROR(cudaDeviceSynchronize());
+            CHECK_ERROR(cudaDeviceSynchronize());
 
-            }*/
+        }if (runtime == 2){ //async runtime
             {
-                void* args[] = {&rs, &d_memory, &num_allocations, &allocation_size_byte};
+                void* args[] = {&rs, &d_memory_f, &num_allocations, &allocation_size_byte};
                 timing_allocation.startMeasurement();
                 if(warp_based){
                     rs.run_sync((void*)d_testAsyncAllocation_RS<Runtime<MemoryManager2>, true>, gridSize, blockSize, args, app_ctx);
@@ -625,25 +645,30 @@ int main(int argc, char* argv[])
                 }
                 timing_allocation.stopMeasurement();
             }
+            CHECK_ERROR(cudaDeviceSynchronize());
             {
-                void* args2[] = {&d_memory, &num_allocations, &allocation_size_byte};
+                void* args2[] = {&d_memory_f, &num_allocations, &allocation_size_byte};
+                
+                timing_write.startMeasurement();
                 rs.run_sync((void*)d_testFutureWriteToMemory<Runtime<MemoryManager2>>, gridSize, blockSize, args2, app_ctx);
+                timing_write.stopMeasurement();
+                CHECK_ERROR(cudaDeviceSynchronize());
+                
                 rs.run_sync((void*)d_testFutureReadFromMemory<Runtime<MemoryManager2>>, gridSize, blockSize, args2, app_ctx);
+                CHECK_ERROR(cudaDeviceSynchronize());
             }
             {
-                void* args[] = {&rs, &d_memory, &num_allocations};
+                void* args[] = {&rs, &d_memory_f, &num_allocations};
                 timing_free.startMeasurement();
                 if(warp_based){
                     rs.run_sync((void*)d_testFutureFree_RS<Runtime<MemoryManager2>, true>, gridSize, blockSize, args, app_ctx);
                 }else{
                     rs.run_sync((void*)d_testFutureFree_RS<Runtime<MemoryManager2>, false>, gridSize, blockSize, args, app_ctx);
                 }
-            timing_free.stopMeasurement();
+                timing_free.stopMeasurement();
             }
-            GUARD_CU(cudaFree(d_memory));
+            CHECK_ERROR(cudaDeviceSynchronize());
         }else{  //no runtime
-            int** d_memory{nullptr};
-            CHECK_ERROR(cudaMalloc((void**)&d_memory, sizeof(volatile int*) * (num_allocations)));
             timing_allocation.startMeasurement();
             if(warp_based){
                 d_testAllocation <decltype(memory_manager), true> <<<gridSize, blockSize>>>(memory_manager, d_memory, num_allocations, allocation_size_byte);
@@ -655,12 +680,12 @@ int main(int argc, char* argv[])
             timing_allocation.stopMeasurement();
             CHECK_ERROR(cudaDeviceSynchronize());
 
+            timing_write.startMeasurement();
             d_testWriteToMemory<<<gridSize, blockSize>>>(d_memory, num_allocations, allocation_size_byte);
-
+            timing_write.stopMeasurement();
             CHECK_ERROR(cudaDeviceSynchronize());
 
             d_testReadFromMemory<<<gridSize, blockSize>>>(d_memory, num_allocations, allocation_size_byte);
-
             CHECK_ERROR(cudaDeviceSynchronize());
 
             timing_free.startMeasurement();
@@ -671,9 +696,11 @@ int main(int argc, char* argv[])
                 
             timing_free.stopMeasurement();
             CHECK_ERROR(cudaDeviceSynchronize());
-            GUARD_CU(cudaFree(d_memory));
         }
     }
+    GUARD_CU(cudaFree(d_memory));
+    GUARD_CU(cudaFree(d_memory_f));
+    CHECK_ERROR(cudaDeviceSynchronize());
 
     debug("stop services\n");
     rs.stop_services();
@@ -694,7 +721,7 @@ int main(int argc, char* argv[])
     
 
 	std::cout << std::endl;
-	if(onDeviceMeasure)
+	/*if(onDeviceMeasure)
 	{
 		auto alloc_result = per_thread_timing_allocation.generateResult();
 		auto free_result = per_thread_timing_free.generateResult();
@@ -710,18 +737,21 @@ int main(int argc, char* argv[])
 			results_free << free_result.mean_ << "," << free_result.std_dev_ << "," << free_result.min_ << "," << free_result.max_ << "," << free_result.median_;
 		}
 	}
-	else
+	else*/
 	{
 		auto alloc_result = timing_allocation.generateResult();
 		auto free_result = timing_free.generateResult();
+        auto write_result = timing_write.generateResult();
 		if(print_output)
 		{
 			std::cout << "Timing Allocation: Mean:" << alloc_result.mean_ << "ms" << std::endl;// " | Median: " << alloc_result.median_ << " ms" << std::endl;
+			std::cout << "Timing      Write: Mean:" << write_result.mean_ << "ms" << std::endl;// "  | Median: " << free_result.median_ << " ms" << std::endl;
 			std::cout << "Timing       Free: Mean:" << free_result.mean_ << "ms" << std::endl;// "  | Median: " << free_result.median_ << " ms" << std::endl;
 		}
 		if(generate_output)
 		{
 			results_alloc << alloc_result.mean_ << "," << alloc_result.std_dev_ << "," << alloc_result.min_ << "," << alloc_result.max_ << "," << alloc_result.median_;
+			results_write << write_result.mean_ << "," << write_result.std_dev_ << "," << write_result.min_ << "," << write_result.max_ << "," << write_result.median_;
 			results_free << free_result.mean_ << "," << free_result.std_dev_ << "," << free_result.min_ << "," << free_result.max_ << "," << free_result.median_;
         }
         /*if (alloc_result.mean_ < min_time){
