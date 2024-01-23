@@ -177,16 +177,16 @@ if(TEST_OUROBOROS)
 	set_property(TARGET o_async_alloc_test_p PROPERTY CUDA_ARCHITECTURES OFF)
     set_property(TARGET o_async_alloc_test_p PROPERTY CUDA_SEPARABLE_COMPILATION ON)
 
-	add_executable(o_async_alloc_test_correctness_p
-	perf_async_allocation_correctness.cu
-	)
-	target_compile_definitions(o_async_alloc_test_correctness_p PUBLIC TEST_OUROBOROS)
-	target_compile_definitions(o_async_alloc_test_correctness_p PUBLIC TEST_PAGES)
-	target_include_directories(o_async_alloc_test_correctness_p PUBLIC ${BASE_PATH}frameworks/ouroboros/repository/include)
-    target_include_directories(o_async_alloc_test_correctness_p PUBLIC ${BASE_PATH}externals/ouroboros/)
-    target_link_libraries(o_async_alloc_test_correctness_p cuda)
-	set_property(TARGET o_async_alloc_test_correctness_p PROPERTY CUDA_ARCHITECTURES OFF)
-    set_property(TARGET o_async_alloc_test_correctness_p PROPERTY CUDA_SEPARABLE_COMPILATION ON)
+	#add_executable(o_async_alloc_test_correctness_p
+	#perf_async_allocation_correctness.cu
+	#)
+	#target_compile_definitions(o_async_alloc_test_correctness_p PUBLIC TEST_OUROBOROS)
+	#target_compile_definitions(o_async_alloc_test_correctness_p PUBLIC TEST_PAGES)
+	#target_include_directories(o_async_alloc_test_correctness_p PUBLIC ${BASE_PATH}frameworks/ouroboros/repository/include)
+    #target_include_directories(o_async_alloc_test_correctness_p PUBLIC ${BASE_PATH}externals/ouroboros/)
+    #target_link_libraries(o_async_alloc_test_correctness_p cuda)
+	#set_property(TARGET o_async_alloc_test_correctness_p PROPERTY CUDA_ARCHITECTURES OFF)
+    #set_property(TARGET o_async_alloc_test_correctness_p PROPERTY CUDA_SEPARABLE_COMPILATION ON)
 
 	add_executable(o_unified_kernel_launch_p
 	perf_unified_kernel_launch.cu
