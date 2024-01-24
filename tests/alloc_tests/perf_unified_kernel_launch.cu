@@ -559,9 +559,11 @@ int main(int argc, char* argv[])
     printf("\n");
     */
 
-   // if (runtime == 1 or runtime == 2){
+    // Sync Runtime: runtime == 1
+    // Async Runtime: runtime == 2
+    if (runtime == 1 or runtime == 2){
         rs.init(num_allocations, 0, memory_manager.d_memory_manager, mem_pool_size, app_sm/*, factor*/, multi_processor_count, mm_sm, mm_blockSize, mm_gridSize);//, mm_blocks_per_sm);
-    //}
+    }
     printf("\napp #threads %d x #blocks %d = #total threads %d\n", blockSize, gridSize, blockSize*gridSize); 
 
     CUcontext current;
@@ -570,16 +572,15 @@ int main(int argc, char* argv[])
     fflush(stdout);
 
     CUcontext app_ctx; 
-        CUexecAffinityParam_v1 app_param{CUexecAffinityType::CU_EXEC_AFFINITY_TYPE_SM_COUNT, (unsigned int) app_sm};
-        auto affinity_flags = CUctx_flags::CU_CTX_SCHED_AUTO;
-        GUARD_CU((cudaError_t)cuCtxCreate_v3(&app_ctx, &app_param, 1, affinity_flags, device));
-        GUARD_CU((cudaError_t)cuCtxGetExecAffinity(&app_param, CUexecAffinityType::CU_EXEC_AFFINITY_TYPE_SM_COUNT));
-        printf("app sm %d/%d\n", app_param.param.smCount.val, multi_processor_count);
-        GUARD_CU((cudaError_t)cuCtxSynchronize());
-        GUARD_CU((cudaError_t)cuCtxPopCurrent(&app_ctx));
-        debug("app ctx %p\n", app_ctx);
-        GUARD_CU((cudaError_t)cuCtxSynchronize());
-   
+    CUexecAffinityParam_v1 app_param{CUexecAffinityType::CU_EXEC_AFFINITY_TYPE_SM_COUNT, (unsigned int) app_sm};
+    auto affinity_flags = CUctx_flags::CU_CTX_SCHED_AUTO;
+    GUARD_CU((cudaError_t)cuCtxCreate_v3(&app_ctx, &app_param, 1, affinity_flags, device));
+    GUARD_CU((cudaError_t)cuCtxGetExecAffinity(&app_param, CUexecAffinityType::CU_EXEC_AFFINITY_TYPE_SM_COUNT));
+    printf("app sm %d/%d\n", app_param.param.smCount.val, multi_processor_count);
+    GUARD_CU((cudaError_t)cuCtxSynchronize());
+    GUARD_CU((cudaError_t)cuCtxPopCurrent(&app_ctx));
+    debug("app ctx %p\n", app_ctx);
+    GUARD_CU((cudaError_t)cuCtxSynchronize());
 
     int active_app_warps = app_sm * 2048;
     int active_mm_warps = mm_blockSize * mm_gridSize; //for persistent kernel all its blocks are always active.
@@ -595,13 +596,6 @@ int main(int argc, char* argv[])
     //printf("# active app warps per active service warp %d\n", gridSize*blockSize/(mm_gridSize*mm_blockSize));
     printf("# active app warps per active service warp %d\n", active_app_warps/active_mm_warps);
 
-    CUcontext mono_app_ctx; 
-    CUexecAffinityParam_v1 mono_app_param{CUexecAffinityType::CU_EXEC_AFFINITY_TYPE_SM_COUNT, app_sm};
-    auto mono_affinity_flags = CUctx_flags::CU_CTX_SCHED_AUTO;
-    GUARD_CU((cudaError_t)cuCtxCreate_v3(&mono_app_ctx, &mono_app_param, 1, mono_affinity_flags, device));
-    GUARD_CU((cudaError_t)cuCtxPopCurrent(&mono_app_ctx));
-    GUARD_CU((cudaError_t)cuCtxSynchronize());
-   
     int** d_memory{nullptr};
     if (runtime == 1 or runtime == 0){
         CHECK_ERROR(cudaMalloc((void**)&d_memory, sizeof(volatile int*) * (num_allocations)));
@@ -613,7 +607,6 @@ int main(int argc, char* argv[])
         CHECK_ERROR(cudaMalloc((void**)&d_memory_f, sizeof(Runtime<MemoryManager2>::Future) * (num_allocations)));
         CHECK_ERROR(cudaDeviceSynchronize());
     }
-
 
     for(auto it = 0; it < num_iterations; ++it)
     {
@@ -699,11 +692,11 @@ int main(int argc, char* argv[])
                 timing_allocation.startMeasurement();
                 if(warp_based){
                     MPS_single_kernel_launch((void*)d_testAllocation<decltype(memory_manager), true>, gridSize,
-                    blockSize, args, app_sm, device, mono_app_ctx);
+                    blockSize, args, app_sm, device, app_ctx);
                 }else{
                     CHECK_ERROR(cudaProfilerStart());
                     MPS_single_kernel_launch((void*)d_testAllocation<decltype(memory_manager), false>, gridSize,
-                    blockSize, args, app_sm, device, mono_app_ctx);
+                    blockSize, args, app_sm, device, app_ctx);
                     CHECK_ERROR(cudaProfilerStop());
                 }
                 timing_allocation.stopMeasurement();
@@ -712,13 +705,13 @@ int main(int argc, char* argv[])
             {
                 void* args[] = {&d_memory, &num_allocations, &allocation_size_byte};
                 timing_write.startMeasurement();
-                MPS_single_kernel_launch((void*)d_testWriteToMemory, gridSize, blockSize, args, app_sm, device, mono_app_ctx);
+                MPS_single_kernel_launch((void*)d_testWriteToMemory, gridSize, blockSize, args, app_sm, device, app_ctx);
                 timing_write.stopMeasurement();
                 CHECK_ERROR(cudaDeviceSynchronize());
 
                 //d_testReadFromMemory<<<gridSize, blockSize>>>(d_memory, num_allocations, allocation_size_byte);
                 MPS_single_kernel_launch((void*)d_testReadFromMemory, gridSize, blockSize, args, app_sm, device,
-                mono_app_ctx);
+                app_ctx);
                 CHECK_ERROR(cudaDeviceSynchronize());
             }
 
@@ -728,11 +721,11 @@ int main(int argc, char* argv[])
                 if(warp_based){
                     //d_testFree <decltype(memory_manager), true> <<<gridSize, blockSize>>>(memory_manager, d_memory, num_allocations);
                     MPS_single_kernel_launch((void*)d_testFree<decltype(memory_manager), true>, gridSize, blockSize,
-                    args, app_sm, device, mono_app_ctx);
+                    args, app_sm, device, app_ctx);
                 }else{
                     //d_testFree <decltype(memory_manager), false> <<<gridSize, blockSize>>>(memory_manager, d_memory, num_allocations);
                     MPS_single_kernel_launch((void*)d_testFree<decltype(memory_manager), false>, gridSize, blockSize,
-                    args, app_sm, device, mono_app_ctx);
+                    args, app_sm, device, app_ctx);
                 }
                 timing_free.stopMeasurement();
                 CHECK_ERROR(cudaDeviceSynchronize());
@@ -746,23 +739,24 @@ int main(int argc, char* argv[])
     }
     CHECK_ERROR(cudaDeviceSynchronize());
 
-    debug("stop services\n");
-    rs.stop_services();
-    GUARD_CU(cudaDeviceSynchronize());
-    GUARD_CU(cudaPeekAtLastError());
-    debug("clean memory\n");
-    clean_memory(app_sm, blockSize, rs);
-    GUARD_CU((cudaError_t)cuCtxDestroy(app_ctx));
-    GUARD_CU(cudaDeviceSynchronize());
-    GUARD_CU(cudaPeekAtLastError());
-    debug("memory cleaned\n");
-    GUARD_CU(cudaDeviceSynchronize());
-    GUARD_CU(cudaPeekAtLastError());
-    debug("stop runtime\n");
-    rs.stop_runtime();
-    GUARD_CU(cudaDeviceSynchronize());
-    GUARD_CU(cudaPeekAtLastError());
-    
+    if (runtime == 1 or runtime == 2){ 
+        debug("stop services\n");
+        rs.stop_services();
+        GUARD_CU(cudaDeviceSynchronize());
+        GUARD_CU(cudaPeekAtLastError());
+        debug("clean memory\n");
+        clean_memory(app_sm, blockSize, rs);
+        GUARD_CU((cudaError_t)cuCtxDestroy(app_ctx));
+        GUARD_CU(cudaDeviceSynchronize());
+        GUARD_CU(cudaPeekAtLastError());
+        debug("memory cleaned\n");
+        GUARD_CU(cudaDeviceSynchronize());
+        GUARD_CU(cudaPeekAtLastError());
+        debug("stop runtime\n");
+        rs.stop_runtime();
+        GUARD_CU(cudaDeviceSynchronize());
+        GUARD_CU(cudaPeekAtLastError());
+    } 
 
 	std::cout << std::endl;
 	/*if(onDeviceMeasure)
