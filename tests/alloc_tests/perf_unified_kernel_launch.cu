@@ -300,8 +300,7 @@ void get_kernel_attributes(cudaFuncAttributes& funcAttribMalloc){
 	printf("sharedSizeBytes = %d\n",                 funcAttribMalloc.sharedSizeBytes);
 }
 
-void MPS_single_kernel_launch(void* kernel_app, unsigned int gridSize, unsigned int blockSize, void** args, unsigned int
-sm_app, unsigned int device, CUcontext& app_ctx){
+void MPS_single_kernel_launch(void* kernel_app, unsigned int gridSize, unsigned int blockSize, void** args, CUcontext& app_ctx){
     std::thread app_thread{[&]{
         GUARD_CU((cudaError_t)cuCtxPushCurrent(app_ctx));
         GUARD_CU((cudaError_t)cuCtxSynchronize());
@@ -318,6 +317,54 @@ sm_app, unsigned int device, CUcontext& app_ctx){
         GUARD_CU(cudaGetLastError());
     }};
     app_thread.join();
+}
+
+__global__
+void dummy_service(volatile int* exit_signal){
+    printf("I am running\n");
+    while (!exit_signal[0]);
+    printf("exit!\n");
+}
+
+template<typename R>
+void test_runtime(int** d_memory, R* rs, unsigned int& num_allocations, unsigned int& allocation_size_byte, int gridSize, int
+blockSize,  CUcontext& app_ctx, bool warp_based, PerfMeasure& timing_allocation, PerfMeasure& timing_write, PerfMeasure& timing_free){
+    CHECK_ERROR(cudaDeviceSynchronize());
+    {
+        void* args[] = {rs, &d_memory, &num_allocations, &allocation_size_byte};
+        timing_allocation.startMeasurement();
+        if(warp_based){
+            rs->run_sync((void*)d_testAllocation_RS<R, true>, gridSize, blockSize, args, app_ctx);
+        }else{
+            CHECK_ERROR(cudaProfilerStart());
+            rs->run_sync((void*)d_testAllocation_RS<R, false>, gridSize, blockSize, args, app_ctx);
+            CHECK_ERROR(cudaProfilerStop());
+        }
+        timing_allocation.stopMeasurement();
+    }
+    CHECK_ERROR(cudaDeviceSynchronize());
+
+    void* args2[] = {&d_memory, &num_allocations, &allocation_size_byte};
+
+    timing_write.startMeasurement();
+    rs->run_sync((void*)d_testWriteToMemory, gridSize, blockSize, args2, app_ctx);
+    timing_write.stopMeasurement();
+    CHECK_ERROR(cudaDeviceSynchronize());
+
+    rs->run_sync((void*)d_testReadFromMemory, gridSize, blockSize, args2, app_ctx);
+    CHECK_ERROR(cudaDeviceSynchronize());
+
+    {
+        void* args[] = {rs, &d_memory, &num_allocations};
+        timing_free.startMeasurement();
+        if(warp_based){
+            rs->run_sync((void*)d_testFree_RS<R, true>, gridSize, blockSize, args, app_ctx);
+        }else{
+            rs->run_sync((void*)d_testFree_RS<R, false>, gridSize, blockSize, args, app_ctx);
+        }
+        timing_free.stopMeasurement();
+    }
+    CHECK_ERROR(cudaDeviceSynchronize());
 }
 
 int main(int argc, char* argv[])
@@ -346,8 +393,8 @@ int main(int argc, char* argv[])
 	std::string alloc_csv_path{"../results/tmp/"};
 	std::string write_csv_path{"../results/tmp/"};
 	std::string free_csv_path{"../results/tmp/"};
-	//int allocSizeinGB{8};
-	int allocSizeinGB{16};
+	int allocSizeinGB{8};
+	//int allocSizeinGB{16};
     int device{0};
     int runtime{0};
     if(argc >= 2)
@@ -440,6 +487,7 @@ int main(int argc, char* argv[])
 	if(print_output)
 		std::cout << "Number of Allocations: " << num_allocations << " | Allocation Size: " << allocation_size_byte << std::endl;
 
+    printf("device %d\n", device);
 	CHECK_ERROR(cudaSetDevice(device));
 	cudaDeviceProp prop;
 	CHECK_ERROR(cudaGetDeviceProperties(&prop, device));
@@ -468,13 +516,14 @@ int main(int argc, char* argv[])
 		gridSize *= 32;
 
 	PerfMeasure timing_allocation;
-	PerfMeasure timing_free;
 	PerfMeasure timing_write;
+	PerfMeasure timing_free;
 
     DevicePerfMeasure per_thread_timing_allocation(num_allocations, num_iterations);
     DevicePerfMeasure per_thread_timing_free(num_allocations, num_iterations);
     size_t mem_pool_size = (size_t)(allocSizeinGB*1024ULL*1024ULL*1024ULL);
-    debug("memory pool available to allocate: %lu, app is going to allocate in total %u\n", mem_pool_size, num_allocations*allocation_size_byte); 
+    printf("memory pool available to allocate: %lu (%dGB), app is going to allocate in total %u\n", mem_pool_size,
+    allocSizeinGB, num_allocations*allocation_size_byte); 
 
     MemoryManager memory_manager(mem_pool_size);
 
@@ -534,12 +583,14 @@ int main(int argc, char* argv[])
 	CHECK_ERROR(cudaFuncGetAttributes(&funcAttribMalloc, mem_manager_service<MemoryManager>));
     get_kernel_attributes(funcAttribMalloc);
 }
+    
     printf("\n");
 {
 	struct cudaFuncAttributes funcAttribMalloc;
     printf("Memory Manager Service <MemoryManager2>\n");
 	CHECK_ERROR(cudaFuncGetAttributes(&funcAttribMalloc, mem_manager_service<MemoryManager2>));
     get_kernel_attributes(funcAttribMalloc);
+	mm_blockSize = funcAttribMalloc.maxThreadsPerBlock;
 }
     printf("\n");
 {
@@ -556,13 +607,44 @@ int main(int argc, char* argv[])
     int maxWarps = prop.maxThreadsPerMultiProcessor/prop.warpSize;
     printf("occupancy %lf %\n", (double)activeWarps/maxWarps * 100);
 }
-    printf("\n");
-    */
+    printf("\n");*/
 
     // Sync Runtime: runtime == 1
     // Async Runtime: runtime == 2
+    std::thread* dummy_thread;
+    int* exit_signal;
+    CUcontext dummy_ctx; 
+
     if (runtime == 1 or runtime == 2){
         rs.init(num_allocations, 0, memory_manager.d_memory_manager, mem_pool_size, app_sm/*, factor*/, multi_processor_count, mm_sm, mm_blockSize, mm_gridSize);//, mm_blocks_per_sm);
+    //}
+    }else{//runtime == 0
+
+        GUARD_CU(cudaMalloc(&exit_signal, sizeof(uint32_t)));
+        GUARD_CU(cudaMemset((void*)exit_signal, 0, sizeof(uint32_t)));
+        CUexecAffinityParam_v1 dummy_param{CUexecAffinityType::CU_EXEC_AFFINITY_TYPE_SM_COUNT, 2};
+        auto affinity_flags = CUctx_flags::CU_CTX_SCHED_AUTO;
+        GUARD_CU((cudaError_t)cuCtxCreate_v3(&dummy_ctx, &dummy_param, 1, affinity_flags, device));
+        GUARD_CU((cudaError_t)cuCtxGetExecAffinity(&dummy_param, CUexecAffinityType::CU_EXEC_AFFINITY_TYPE_SM_COUNT));
+        printf("dummy sm %d/%d\n", dummy_param.param.smCount.val, multi_processor_count);
+        GUARD_CU((cudaError_t)cuCtxPopCurrent(&dummy_ctx));
+        debug("dummy ctx %p\n", dummy_ctx);
+
+        GUARD_CU(cudaPeekAtLastError());
+        GUARD_CU(cudaDeviceSynchronize());
+        GUARD_CU((cudaError_t)cudaGetLastError());
+        dummy_thread = new std::thread{[&] {
+            GUARD_CU((cudaError_t)cuCtxPushCurrent(dummy_ctx));
+            GUARD_CU((cudaError_t)cuCtxSynchronize());
+            GUARD_CU(cudaPeekAtLastError());
+            void *args[] = {&exit_signal};
+            GUARD_CU(cudaLaunchKernel((void*)dummy_service, 1, 1, args));
+            GUARD_CU((cudaError_t)cudaGetLastError());
+            GUARD_CU(cudaPeekAtLastError());
+            GUARD_CU((cudaError_t)cuCtxSynchronize());
+            GUARD_CU((cudaError_t)cuCtxPopCurrent(&dummy_ctx));
+            GUARD_CU(cudaPeekAtLastError());
+        }};
     }
     printf("\napp #threads %d x #blocks %d = #total threads %d\n", blockSize, gridSize, blockSize*gridSize); 
 
@@ -582,19 +664,24 @@ int main(int argc, char* argv[])
     debug("app ctx %p\n", app_ctx);
     GUARD_CU((cudaError_t)cuCtxSynchronize());
 
+    //GUARD_CU(cudaPeekAtLastError());
+    //GUARD_CU(cudaDeviceSynchronize());
+    //GUARD_CU((cudaError_t)cudaGetLastError());
+
     int active_app_warps = app_sm * 2048;
     int active_mm_warps = mm_blockSize * mm_gridSize; //for persistent kernel all its blocks are always active.
 
-    if (runtime == 2){
-        printf("Async Fissioned Application\n");
+    if (runtime == 0){
+        printf("Monolithic Application\n");
     }else if (runtime == 1){
         printf("Fissioned Application\n");
-    }else if (runtime == 0){
-        printf("Monolithic Application\n");
+    }else if (runtime == 2){
+        printf("Async Fissioned Application\n");
     }
 
     //printf("# active app warps per active service warp %d\n", gridSize*blockSize/(mm_gridSize*mm_blockSize));
-    printf("# active app warps per active service warp %d\n", active_app_warps/active_mm_warps);
+    if (active_mm_warps > 0)
+        printf("# active app warps per active service warp %d\n", active_app_warps/active_mm_warps);
 
     int** d_memory{nullptr};
     if (runtime == 1 or runtime == 0){
@@ -612,6 +699,10 @@ int main(int argc, char* argv[])
     {
         std::cout << "#" << std::flush;// << it << "\n" << std::flush;
         if (runtime == 1){ //runtime
+            //test_runtime(d_memory, &rs, num_allocations, allocation_size_byte, gridSize, blockSize, app_ctx, warp_based,
+            //timing_allocation, timing_write, timing_free);
+            
+            CHECK_ERROR(cudaDeviceSynchronize());
             {
                 void* args[] = {&rs, &d_memory, &num_allocations, &allocation_size_byte};
                 timing_allocation.startMeasurement();
@@ -647,9 +738,8 @@ int main(int argc, char* argv[])
                 timing_free.stopMeasurement();
             }
             CHECK_ERROR(cudaDeviceSynchronize());
-
-        }if (runtime == 2){ //async runtime
-
+        }else if (runtime == 2){ //async runtime
+            //printf("async fissioned\n");
             {
                 void* args[] = {&rs, &d_memory_f, &num_allocations, &allocation_size_byte};
                 timing_allocation.startMeasurement();
@@ -685,18 +775,15 @@ int main(int argc, char* argv[])
                 timing_free.stopMeasurement();
             }
             CHECK_ERROR(cudaDeviceSynchronize());
-        }else{  //no runtime
-
+        }else{  //runtime == 0
             {
                 void* args[] = {&memory_manager, &d_memory, &num_allocations, &allocation_size_byte};
                 timing_allocation.startMeasurement();
                 if(warp_based){
-                    MPS_single_kernel_launch((void*)d_testAllocation<decltype(memory_manager), true>, gridSize,
-                    blockSize, args, app_sm, device, app_ctx);
+                    MPS_single_kernel_launch((void*)d_testAllocation<decltype(memory_manager), true>, gridSize, blockSize, args, app_ctx);
                 }else{
                     CHECK_ERROR(cudaProfilerStart());
-                    MPS_single_kernel_launch((void*)d_testAllocation<decltype(memory_manager), false>, gridSize,
-                    blockSize, args, app_sm, device, app_ctx);
+                    MPS_single_kernel_launch((void*)d_testAllocation<decltype(memory_manager), false>, gridSize, blockSize, args, app_ctx);
                     CHECK_ERROR(cudaProfilerStop());
                 }
                 timing_allocation.stopMeasurement();
@@ -705,13 +792,12 @@ int main(int argc, char* argv[])
             {
                 void* args[] = {&d_memory, &num_allocations, &allocation_size_byte};
                 timing_write.startMeasurement();
-                MPS_single_kernel_launch((void*)d_testWriteToMemory, gridSize, blockSize, args, app_sm, device, app_ctx);
+                MPS_single_kernel_launch((void*)d_testWriteToMemory, gridSize, blockSize, args, app_ctx);
                 timing_write.stopMeasurement();
                 CHECK_ERROR(cudaDeviceSynchronize());
 
                 //d_testReadFromMemory<<<gridSize, blockSize>>>(d_memory, num_allocations, allocation_size_byte);
-                MPS_single_kernel_launch((void*)d_testReadFromMemory, gridSize, blockSize, args, app_sm, device,
-                app_ctx);
+                MPS_single_kernel_launch((void*)d_testReadFromMemory, gridSize, blockSize, args, app_ctx);
                 CHECK_ERROR(cudaDeviceSynchronize());
             }
 
@@ -720,25 +806,27 @@ int main(int argc, char* argv[])
                 timing_free.startMeasurement();
                 if(warp_based){
                     //d_testFree <decltype(memory_manager), true> <<<gridSize, blockSize>>>(memory_manager, d_memory, num_allocations);
-                    MPS_single_kernel_launch((void*)d_testFree<decltype(memory_manager), true>, gridSize, blockSize,
-                    args, app_sm, device, app_ctx);
+                    MPS_single_kernel_launch((void*)d_testFree<decltype(memory_manager), true>, gridSize, blockSize, args, app_ctx);
                 }else{
                     //d_testFree <decltype(memory_manager), false> <<<gridSize, blockSize>>>(memory_manager, d_memory, num_allocations);
-                    MPS_single_kernel_launch((void*)d_testFree<decltype(memory_manager), false>, gridSize, blockSize,
-                    args, app_sm, device, app_ctx);
+                    MPS_single_kernel_launch((void*)d_testFree<decltype(memory_manager), false>, gridSize, blockSize, args, app_ctx);
                 }
                 timing_free.stopMeasurement();
                 CHECK_ERROR(cudaDeviceSynchronize());
             }
         }
     }
+
+    //printf("[%s:%d] check\n", __FILE__, __LINE__);
     if (runtime == 1 or runtime == 0){
         GUARD_CU(cudaFree(d_memory));
     }else if (runtime == 2){
         GUARD_CU(cudaFree(d_memory_f));
     }
-    CHECK_ERROR(cudaDeviceSynchronize());
+    //printf("[%s:%d] check\n", __FILE__, __LINE__);
+    //CHECK_ERROR(cudaDeviceSynchronize());
 
+    //printf("[%s:%d] check\n", __FILE__, __LINE__);
     if (runtime == 1 or runtime == 2){ 
         debug("stop services\n");
         rs.stop_services();
@@ -746,17 +834,26 @@ int main(int argc, char* argv[])
         GUARD_CU(cudaPeekAtLastError());
         debug("clean memory\n");
         clean_memory(app_sm, blockSize, rs);
-        GUARD_CU((cudaError_t)cuCtxDestroy(app_ctx));
+    }else{
+        GUARD_CU(cudaMemset((void*)exit_signal, 1, sizeof(uint32_t)));
+        dummy_thread->join();
         GUARD_CU(cudaDeviceSynchronize());
         GUARD_CU(cudaPeekAtLastError());
-        debug("memory cleaned\n");
-        GUARD_CU(cudaDeviceSynchronize());
-        GUARD_CU(cudaPeekAtLastError());
+        GUARD_CU(cudaFree(exit_signal));
+        GUARD_CU((cudaError_t)cuCtxDestroy(dummy_ctx));
+    } 
+    //printf("[%s:%d] check\n", __FILE__, __LINE__);
+
+    GUARD_CU((cudaError_t)cuCtxDestroy(app_ctx));
+    //GUARD_CU(cudaDeviceSynchronize());
+    //GUARD_CU(cudaPeekAtLastError());
+
+    if (runtime == 1 or runtime == 2){ 
         debug("stop runtime\n");
         rs.stop_runtime();
         GUARD_CU(cudaDeviceSynchronize());
         GUARD_CU(cudaPeekAtLastError());
-    } 
+    }
 
 	std::cout << std::endl;
 	/*if(onDeviceMeasure)
@@ -782,6 +879,9 @@ int main(int argc, char* argv[])
         auto write_result = timing_write.generateResult();
 		if(print_output)
 		{
+            printf("measurement number %d\n", alloc_result.num_);
+            printf("measurement number %d\n", write_result.num_);
+            printf("measurement number %d\n", free_result.num_);
 			std::cout << "Timing Allocation: Mean:" << alloc_result.mean_ << "ms" << std::endl;// " | Median: " << alloc_result.median_ << " ms" << std::endl;
 			std::cout << "Timing      Write: Mean:" << write_result.mean_ << "ms" << std::endl;// "  | Median: " << free_result.median_ << " ms" << std::endl;
 			std::cout << "Timing       Free: Mean:" << free_result.mean_ << "ms" << std::endl;// "  | Median: " << free_result.median_ << " ms" << std::endl;
